@@ -111,5 +111,3 @@ Projekt został zbudowany w oparciu o nowoczesny stos technologiczny Pythonowy:
 - **Uvicorn** – lekki serwer ASGI do uruchamiania aplikacji FastAPI
 - **pytest** – framework do pisania i uruchamiania testów
 - **SQLite** – domyślna baza danych w wersji lokalnej (możliwa zamiana na PostgreSQL)
-
-Projekt jest zgodny z zasadami defensywnego programowania – stawia na jakość, walidację, testy i bezpieczeństwo.
