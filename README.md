@@ -102,7 +102,7 @@ tests/
 
 ## Technologie
 
-Projekt został zbudowany w oparciu o nowoczesny stos technologiczny Pythonowy:
+Projekt został zbudowany w oparciu o Pythonowy stos technologiczny:
 
 - **Python 3.10+** – główny język programowania
 - **FastAPI** – szybki i nowoczesny framework webowy do tworzenia API
