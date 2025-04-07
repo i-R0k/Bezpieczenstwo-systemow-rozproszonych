@@ -2,11 +2,13 @@
 Router do obsługi endpointów związanych z użytkownikami.
 """
 
+import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List
 from ..app import schemas, crud
 from ..app.database import SessionLocal
+from ..app.auth import get_user_by_email, verify_password, create_access_token
 
 router = APIRouter(
     prefix="/users",
@@ -52,3 +54,18 @@ def create_consultant(user: schemas.ConsultantCreate, db: Session = Depends(get_
 def read_users(db: Session = Depends(get_db)):
     users = crud.get_users(db)
     return users
+
+@router.post("/login")
+def login(user_credentials: schemas.UserLogin, db: Session = Depends(get_db)):
+    user = get_user_by_email(db, user_credentials.email)
+    if not user or not verify_password(user_credentials.password, user.password_hash):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid email or password")
+    
+    # Tworzymy token JWT
+    token_payload = {
+        "user_id": user.id,
+        "email": user.email,
+        "role": user.role,
+    }
+    access_token = create_access_token(data=token_payload, expires_delta=datetime.timedelta(hours=1))
+    return {"access_token": access_token, "token_type": "bearer"}

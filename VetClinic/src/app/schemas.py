@@ -70,3 +70,8 @@ class UserOut(UserBase):
 
     class Config:
         from_attributes = True
+
+# Schemat do logowania użytkownika
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
