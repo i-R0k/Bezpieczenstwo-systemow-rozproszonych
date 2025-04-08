@@ -1,6 +1,13 @@
 from pydantic import BaseModel, EmailStr, field_validator
 from typing import Union
-from ..validators import validate_letters, validate_email, validate_phone_number, validate_permit_number, validate_postal_code
+from typing import Optional
+from ..validators import (
+    validate_letters,
+    validate_email,
+    validate_phone_number,
+    validate_permit_number,
+    validate_postal_code,
+)
 
 # Schemat bazowy dla użytkowników
 class UserBase(BaseModel):
@@ -33,6 +40,7 @@ class ClientCreate(UserBase):
     def check_postal_code(cls, value):
         return validate_postal_code(value)
 
+
 # Schemat dla lekarza
 class DoctorCreate(UserBase):
     password: str
@@ -49,13 +57,14 @@ class DoctorCreate(UserBase):
         role = info.data.get("role")
         return validate_email(value, role=role)
 
+
 # Schemat dla konsultanta
 class ConsultantCreate(UserBase):
     password: str
     role: str  # powinno być "konsultant"
 
     @field_validator("email")
-    def validate_doctor_email(cls, value, info):
+    def validate_consultant_email(cls, value, info):
         role = info.data.get("role")
         return validate_email(value, role=role)
 
@@ -63,15 +72,23 @@ class ConsultantCreate(UserBase):
 # Alias unii dla tworzenia użytkownika – pozwala nam przyjmować jeden typ, który może być klientem, lekarzem lub konsultantem.
 UserCreate = Union[ClientCreate, DoctorCreate, ConsultantCreate]
 
+
 # Schemat wyjściowy (dla zwracania danych użytkownika z API)
 class UserOut(UserBase):
     id: int
     role: str
 
-    class Config:
-        from_attributes = True
+    model_config = {
+        "from_attributes": True
+    }
+
 
 # Schemat do logowania użytkownika
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
+    totp_code: Optional[str] = None
+
+class ConfirmTOTP(BaseModel):
+    email: EmailStr
+    totp_code: str

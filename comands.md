@@ -19,3 +19,11 @@ To start the API server, run the following command:
 ```bash
 uvicorn src.app.main:app --reload
 ```
+
+## Run tests
+
+To start tests, run the following command:
+
+```bash
+pytest
+```
