@@ -52,7 +52,6 @@ def create_consultant(user: schemas.ConsultantCreate, db: Session = Depends(get_
         raise HTTPException(status_code=400, detail="User with that email already exists")
     return db_user
 
-
 @router.get("/", response_model=List[schemas.UserOut])
 def read_users(db: Session = Depends(get_db)):
     users = crud.get_users(db)
@@ -102,7 +101,6 @@ def login(user_credentials: schemas.UserLogin, db: Session = Depends(get_db)):
     access_token = create_access_token(data=token_payload, expires_delta=datetime.timedelta(hours=1))
     return {"access_token": access_token, "token_type": "bearer"}
 
-
 @router.post("/setup-totp")
 def setup_totp(email: str, db: Session = Depends(get_db)):
     # Znajdź użytkownika po emailu (przeszukaj wszystkie tabele, np. przez funkcję get_user_by_email)
@@ -123,7 +121,6 @@ def setup_totp(email: str, db: Session = Depends(get_db)):
     generate_qr_code(totp_uri, filename=qr_filename)
     
     return {"message": "TOTP configured", "totp_uri": totp_uri, "qr_code": qr_filename}
-
 
 @router.post("/confirm-totp")
 def confirm_totp(payload: schemas.ConfirmTOTP, db: Session = Depends(get_db)):

@@ -16,7 +16,7 @@ class Client(Base):
     phone_number = Column(String, nullable=False)
     address = Column(String, nullable=False)
     postal_code = Column(String, nullable=False)
-    totp_secret = Column(String, nullable=True)
+    totp_secret = Column(String, nullable=True, default=None)
 
 
     @property
@@ -33,7 +33,7 @@ class Doctor(Base):
     password_hash = Column(String, nullable=False)
     specialization = Column(String, nullable=False)
     permit_number = Column(String, nullable=False)
-    totp_secret = Column(String, nullable=True)
+    totp_secret = Column(String, nullable=True, default=None)
 
     @property
     def role(self):
@@ -47,7 +47,7 @@ class Consultant(Base):
     last_name = Column(String, nullable=False)
     email = Column(String, unique=True, index=True, nullable=False)
     password_hash = Column(String, nullable=False)
-    totp_secret = Column(String, nullable=True)
+    totp_secret = Column(String, nullable=True, default=None)
     
     @property
     def role(self):
