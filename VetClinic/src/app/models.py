@@ -4,6 +4,7 @@ Definicje modeli SQLAlchemy odpowiadających tabelom w bazie danych.
 
 from sqlalchemy import Column, Integer, String
 from ..app.database import Base
+from sqlalchemy.types import Boolean
 
 class Client(Base):
     __tablename__ = "clients"
@@ -17,6 +18,7 @@ class Client(Base):
     address = Column(String, nullable=False)
     postal_code = Column(String, nullable=False)
     totp_secret = Column(String, nullable=True, default=None)
+    totp_confirmed = Column(Boolean, default=False)
 
 
     @property
@@ -34,6 +36,7 @@ class Doctor(Base):
     specialization = Column(String, nullable=False)
     permit_number = Column(String, nullable=False)
     totp_secret = Column(String, nullable=True, default=None)
+    totp_confirmed = Column(Boolean, default=False)
 
     @property
     def role(self):
@@ -48,6 +51,7 @@ class Consultant(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     password_hash = Column(String, nullable=False)
     totp_secret = Column(String, nullable=True, default=None)
+    totp_confirmed = Column(Boolean, default=False)
     
     @property
     def role(self):
