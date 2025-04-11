@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
-from ..app import schemas
-from ..app.models import Client, Doctor, Consultant
+from app.schemas import users
+from app.models.users import Client, Doctor, Consultant
 from passlib.context import CryptContext
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -8,7 +8,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
 
-def create_user(db: Session, user: schemas.UserCreate):
+def create_user(db: Session, user: users.UserCreate):
     hashed_password = get_password_hash(user.password)
     
     if user.role == "klient":

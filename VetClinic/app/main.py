@@ -4,9 +4,8 @@ Importuje wszystkie moduły, rejestruje routery, konfiguruje bazę danych.
 """
 
 from fastapi import FastAPI
-from src.routers import medical_records
-from src.routers import users, appointments, animals, medical_records, invoices
-from ..app.database import engine, Base
+from app.routers import users, appointments, animals, medical_records, invoices
+from app.core.database import engine, Base
 
 app = FastAPI(
     title="System Zarządzania Kliniką Weterynaryjną",
