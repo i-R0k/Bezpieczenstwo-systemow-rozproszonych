@@ -1,6 +1,6 @@
 import pytest
 from sqlalchemy import text
-from src.app.database import engine, SessionLocal
+from app.core.database import engine, SessionLocal
 from sqlalchemy.exc import OperationalError
 
 def test_database_connection():

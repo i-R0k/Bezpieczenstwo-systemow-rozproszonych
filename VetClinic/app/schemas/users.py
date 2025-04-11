@@ -1,7 +1,7 @@
 from pydantic import BaseModel, EmailStr, field_validator
 from typing import Union
 from typing import Optional
-from ..validators import (
+from app.validators import (
     validate_letters,
     validate_email,
     validate_phone_number,

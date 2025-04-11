@@ -3,7 +3,7 @@ Definicje modeli SQLAlchemy odpowiadających tabelom w bazie danych.
 """
 
 from sqlalchemy import Column, Integer, String
-from ..app.database import Base
+from app.core.database import Base
 from sqlalchemy.types import Boolean
 
 class Client(Base):

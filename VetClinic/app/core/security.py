@@ -6,7 +6,7 @@ import os
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 from jwt import encode 
-from ..app.models import Client, Doctor, Consultant
+from app.models.users import Client, Doctor, Consultant
 
 # Ustawienia do JWT
 SECRET_KEY = "super_tajny_klucz"  # Zmień na bezpieczniejszy klucz!
