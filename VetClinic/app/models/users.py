@@ -4,6 +4,7 @@ Definicje modeli SQLAlchemy odpowiadających tabelom w bazie danych.
 
 from sqlalchemy import Column, Integer, String
 from app.core.database import Base
+from sqlalchemy.orm import relationship
 from sqlalchemy.types import Boolean
 
 class Client(Base):
@@ -19,6 +20,9 @@ class Client(Base):
     postal_code = Column(String, nullable=False)
     totp_secret = Column(String, nullable=True, default=None)
     totp_confirmed = Column(Boolean, default=False)
+
+    animals = relationship("Animal", back_populates="owner")
+    appointments = relationship("Appointment", back_populates="owner")
 
 
     @property
@@ -37,6 +41,9 @@ class Doctor(Base):
     permit_number = Column(String, nullable=False)
     totp_secret = Column(String, nullable=True, default=None)
     totp_confirmed = Column(Boolean, default=False)
+
+    appointments = relationship("Appointment", back_populates="doctor")
+    
 
     @property
     def role(self):
