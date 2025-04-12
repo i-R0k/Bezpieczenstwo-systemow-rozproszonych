@@ -10,7 +10,9 @@ from alembic import context
 
 # Importuj bazę modeli (Base) oraz modele
 from app.core.database import Base
-from app.models.users import users
+from app.models.users import *
+from app.models.animals import *
+from app.models.appointments import *
 
 config = context.config
 

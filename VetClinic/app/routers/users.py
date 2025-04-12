@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from typing import List
-from app.crud import users as crud
+from app.crud import users_crud as crud
 from app.schemas import users as schemas
 from app.core.database import SessionLocal
 from app.core.security import get_user_by_email, verify_password, create_access_token
