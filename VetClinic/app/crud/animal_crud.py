@@ -9,7 +9,7 @@ def create_animal(db: Session, animal: AnimalCreate):
         if not validate_animal_chip(animal.microchip_number):
             raise ValueError("Numer mikroczipa musi zawierać dokładnie 15 cyfr.")
 
-    db_animal = AnimalModel(**animal.dict())
+    db_animal = AnimalModel(**animal.model_dump())
     db.add(db_animal)
     db.commit()
     db.refresh(db_animal)
@@ -19,7 +19,7 @@ def update_animal(db: Session, animal_id: int, animal: AnimalUpdate):
     db_animal = db.query(AnimalModel).filter(AnimalModel.id == animal_id).first()
     if not db_animal:
         return None
-    update_data = animal.dict(exclude_unset=True)
+    update_data = animal.model_dump(exclude_unset=True)
     # Jeśli próbujemy aktualizować numer mikroczipa, również walidujemy go.
     if "microchip_number" in update_data and update_data["microchip_number"] is not None:
         if not validate_animal_chip(update_data["microchip_number"]):

@@ -9,7 +9,7 @@ def get_appointments(db: Session, skip: int = 0, limit: int = 100):
     return db.query(AppointmentModel).offset(skip).limit(limit).all()
 
 def create_appointment(db: Session, appointment: AppointmentCreate):
-    db_appointment = AppointmentModel(**appointment.dict())
+    db_appointment = AppointmentModel(**appointment.model_dump())
     db.add(db_appointment)
     db.commit()
     db.refresh(db_appointment)
@@ -19,7 +19,7 @@ def update_appointment(db: Session, appointment_id: int, appointment: Appointmen
     db_appointment = get_appointment(db, appointment_id)
     if not db_appointment:
         return None
-    update_data = appointment.dict(exclude_unset=True)
+    update_data = appointment.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         setattr(db_appointment, key, value)
     db.commit()

@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr, field_validator, ConfigDict
 from typing import Union
 from typing import Optional
 from app.validators import (
@@ -78,9 +78,7 @@ class UserOut(UserBase):
     id: int
     role: str
 
-    model_config = {
-        "from_attributes": True
-    }
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Schemat do logowania użytkownika

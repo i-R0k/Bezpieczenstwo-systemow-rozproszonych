@@ -1,6 +1,6 @@
 from datetime import date, datetime
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 class AnimalBase(BaseModel):
     name: str = Field(..., description="Imię zwierzęcia")
@@ -38,4 +38,4 @@ class Animal(AnimalBase):
     updated_at: datetime = Field(..., description="Data ostatniej modyfikacji")
 
     class Config:
-        form_attributes = True
+        model_config = ConfigDict(from_attributes=True)
