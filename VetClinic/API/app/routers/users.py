@@ -124,7 +124,8 @@ def login(
         data=token_payload,
         expires_delta=datetime.timedelta(hours=1)
     )
-    return {"access_token": access_token, "token_type": "bearer"}
+    return {"access_token": access_token, "token_type": "bearer", "role": user.role}
+
 
 @router.post("/setup-totp")
 def setup_totp(email: str, db: Session = Depends(get_db)):

@@ -17,7 +17,7 @@ alembic upgrade head
 To start the API server, run the following command:
 
 ```bash
-uvicorn src.app.main:app --reload
+uvicorn app.main:app --reload
 ```
 
 ## Run tests
