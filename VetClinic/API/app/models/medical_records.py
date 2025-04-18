@@ -1,5 +1,6 @@
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
 from datetime import datetime
 from app.core.database import Base
 
@@ -12,7 +13,7 @@ class MedicalRecord(Base):
     description = Column(Text, nullable=False)
     diagnosis = Column(Text, nullable=True)
     treatment = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     animal = relationship("Animal", back_populates="medical_records")
     appointment = relationship("Appointment", back_populates="medical_records")
