@@ -157,7 +157,7 @@ Projekt został zbudowany w oparciu o Pythonowy stos technologiczny:
 - ✅ Implementacja CRUD dla wpisów medycznych (dodawanie, edycja, usuwanie, przeglądanie historii leczenia).
 - ✅ Powiązanie danych medycznych z konkretnymi wizytami i zwierzętami.
 - [ ] Dodanie mechanizmów walidacji danych medycznych.
-- [ ] Napisanie testów jednostkowych dla operacji CRUD na danych medycznych.
+- ✅ Napisanie testów jednostkowych dla operacji CRUD na danych medycznych.
 - [ ] Stworzenie podstawowego interfejsu do przeglądania historii leczenia (w GUI lub jako widok w aplikacji web).
 
 ### Tydzień 7: Testy jednostkowe i analiza statyczna kodu
