@@ -1,0 +1,24 @@
+# ─── Python byte‑compiled / optimized files ───────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+
+# ─── pytest cache ───────────────────────────────────────────────────────
+.pytest_cache/           # katalog cache dla pytest :contentReference[oaicite:0]{index=0}
+
+# ─── Visual Studio Code ────────────────────────────────────────────────
+.vscode/                 # ustawienia IDE :contentReference[oaicite:1]{index=1}
+
+# ─── wirtualne środowiska ─────────────────────────────────────────────
+venv/
+.env/
+.venv/
+
+# ─── dystrybucja / packaging ──────────────────────────────────────────
+build/
+dist/
+*.egg-info/
+*.egg
+
+# ─── pliki systemowe ───────────────────────────────────────────────────
+.DS_Store
