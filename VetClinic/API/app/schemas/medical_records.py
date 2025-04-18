@@ -1,23 +1,22 @@
-from pydantic import BaseModel, ConfigDict
 from datetime import datetime
-from typing import Optional
+from pydantic import BaseModel, ConfigDict
 
 class MedicalRecordBase(BaseModel):
-    animal_id: int
     description: str
-    diagnosis: Optional[str] = None
-    treatment: Optional[str] = None
 
 class MedicalRecordCreate(MedicalRecordBase):
-    pass
+    appointment_id: int
+    animal_id: int
 
 class MedicalRecordUpdate(BaseModel):
-    description: Optional[str] = None
-    diagnosis: Optional[str] = None
-    treatment: Optional[str] = None
+    description: str | None = None
+    appointment_id: int | None = None
+    animal_id: int | None = None
 
 class MedicalRecord(MedicalRecordBase):
     id: int
     created_at: datetime
+    appointment_id: int
+    animal_id: int
 
     model_config = ConfigDict(from_attributes=True)
