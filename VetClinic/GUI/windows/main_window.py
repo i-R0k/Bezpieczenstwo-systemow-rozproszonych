@@ -3,7 +3,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 class MainWindow(QtWidgets.QWidget):
     """
     Główne okno aplikacji.
-    Wyświetla rolę zalogowanego użytkownika, np. "Twoja rola: doktorr".
+    Wyświetla rolę zalogowanego użytkownika, np. "Twoja rola: doktor".
     """
     def __init__(self, user_role, parent=None):
         super().__init__(parent)
