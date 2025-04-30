@@ -2,10 +2,11 @@ import sys
 from PyQt5.QtWidgets import QApplication
 from windows.main_window import MainWindow
 from windows.login_window import LoginWindow
+from VetClinic.GUI.windows.Client.Dashboard import MainWindow
 
 def main():
     app = QApplication(sys.argv)
-    window = LoginWindow()
+    window = MainWindow()
     window.show()
     sys.exit(app.exec_())
 
