@@ -8,15 +8,13 @@ from PyQt5.QtWidgets import (
     QCalendarWidget, QToolButton, QHeaderView,
     QSizePolicy, QSplitter, QToolTip
 )
-from PyQt5.QtCore import Qt, QDate
-from PyQt5.QtGui import QFont, QPainter, QBrush, QColor, QCursor, QPen
+from PyQt5.QtCore import Qt, QDate, QDateTime
+from PyQt5.QtGui import QFont, QPainter, QBrush, QColor, QCursor, QPen, QLinearGradient, QGradient
 from PyQt5.QtChart import (
     QChart, QChartView,
     QLineSeries, QSplineSeries, QAreaSeries,
-    QScatterSeries, QCategoryAxis, QValueAxis
+    QScatterSeries, QCategoryAxis, QValueAxis, QDateTimeAxis
 )
-
-from VetClinic.GUI.Widgets.smooth_chart_view import SmoothChartView
 
 class DashboardWindow(QMainWindow):
     def __init__(self):
@@ -243,7 +241,6 @@ class DashboardWindow(QMainWindow):
         return group
 
     def _create_vaccinations(self) -> QGroupBox:
-        # ——— 1) Grupa z białym tłem i ramką jak w karcie medycznej ———
         group = QGroupBox()
         group.setStyleSheet("""
             QGroupBox {
@@ -263,10 +260,7 @@ class DashboardWindow(QMainWindow):
             }
         """)
 
-        # ——— 2) Layout i nagłówek jak w medycznej ———
         layout = QVBoxLayout(group)
-        # korzystamy z domyślnych contentsMargins QGroupBox, 
-        # żeby zachować ten sam padding co w medycznej
 
         header = QHBoxLayout()
         title = QLabel("Szczepienia")
@@ -373,10 +367,8 @@ class DashboardWindow(QMainWindow):
         layout.addWidget(table)
         return group
 
-    def _create_weight_chart(self) -> QGroupBox:
-        # ——— 1) Kontener z ramką i białym tłem, identyczny jak w pozostałych sekcjach ———
-        group = QGroupBox()
-        group.setStyleSheet("""
+    def _groupbox_css(self) -> str:
+        return """
             QGroupBox {
                 background-color: #ffffff;
                 border: 1px solid #e5e7eb;
@@ -392,10 +384,14 @@ class DashboardWindow(QMainWindow):
                 color: #111827;
                 background-color: #ffffff;
             }
-        """)
+        """
 
-        # ——— 2) Layout i nagłówek sekcji ———
+    def _create_weight_chart(self) -> QGroupBox:
+        # ——— Kontener i nagłówek jak poprzednio ———
+        group = QGroupBox("Waga zwierzaka")
+        group.setStyleSheet(self._groupbox_css())
         layout = QVBoxLayout(group)
+
         header = QHBoxLayout()
         title = QLabel("Waga zwierzaka")
         title.setFont(QFont('Arial', 12, QFont.Bold))
@@ -410,75 +406,127 @@ class DashboardWindow(QMainWindow):
         header.addWidget(menu_btn)
         layout.addLayout(header)
 
-        # ——— 3) Dane i ich marginesy ———
-        weights = [2000,2500,2300,2400,2600,2800,3000,3200,3100,3000,2900,2800]
-        months  = ["Sty","Lut","Mar","Kwi","Maj","Cze","Lip","Sie","Wrz","Paź","Lis","Gru"]
+        # ——— 1) Dane: waga + odpowiadające im dni pierwszego każdego miesiąca ———
+        weights = [2000, 2500, 2300, 2400, 2600, 2800, 3000, 3200, 3100, 3000, 2900, 2800]
+        dates   = [QDate(2025, m, 1) for m in range(1, 13)]
 
+        # ——— 2) Zakres Y ———
         mn, mx = min(weights), max(weights)
         dy = (mx - mn) * 0.1
         y_min, y_max = mn - dy, mx + dy
 
-        # ——— 4) SplineSeries (gładka linia) ———
-        spline   = QSplineSeries()
-        baseline = QSplineSeries()
-        for i, w in enumerate(weights, 1):
-            spline.append(i, w)
-            baseline.append(i, y_min)
+        # ——— 3) Rzut na timestamp i Catmull–Rom densyfikacja ———
+        raw_pts = [(QDateTime(d).toMSecsSinceEpoch(), w) for d, w in zip(dates, weights)]
+        def catmull_rom(pts, samples=20):
+            def CR(p0,p1,p2,p3,t):
+                # standardowa formuła Catmull–Rom
+                a = 2*p1[1]
+                b = -p0[1] + p2[1]
+                c = 2*p0[1] - 5*p1[1] + 4*p2[1] - p3[1]
+                d = -p0[1] + 3*p1[1] - 3*p2[1] + p3[1]
+                ax = 2*p1[0]
+                bx = -p0[0] + p2[0]
+                cx = 2*p0[0] - 5*p1[0] + 4*p2[0] - p3[0]
+                dx = -p0[0] + 3*p1[0] - 3*p2[0] + p3[0]
+                t2, t3 = t*t, t*t*t
+                y = 0.5*(a + b*t + c*t2 + d*t3)
+                x = 0.5*(ax + bx*t + cx*t2 + dx*t3)
+                return x, y
 
+            dense = []
+            n = len(pts)
+            for i in range(n-1):
+                p0 = pts[i-1] if i-1>=0 else pts[i]
+                p1, p2 = pts[i], pts[i+1]
+                p3 = pts[i+2] if i+2<n else pts[i+1]
+                for s in range(samples):
+                    dense.append(CR(p0, p1, p2, p3, s/ samples))
+            dense.append(pts[-1])
+            return dense
+
+        dense_pts = catmull_rom(raw_pts, samples=20)
+
+        # ——— 4) Tworzymy gęstą linię i bazę(y=0) ———
+        top = QLineSeries()
+        for x, y in dense_pts:
+            top.append(x, y)
         pen = QPen(QColor("#38A2DB"))
-        pen.setWidth(2)
-        pen.setCapStyle(Qt.RoundCap)
-        pen.setJoinStyle(Qt.RoundJoin)
-        spline.setPen(pen)
+        pen.setWidth(2); pen.setCapStyle(Qt.RoundCap); pen.setJoinStyle(Qt.RoundJoin)
+        top.setPen(pen)
 
-        # ——— 5) Punkty i tooltip ———
+        base = QLineSeries()
+        for x, _ in dense_pts:
+            base.append(x, 0)
+
+        # ——— 5) Obszar z gradientowym wypełnieniem ———
+        area = QAreaSeries(top, base)
+        grad = QLinearGradient(0, 0, 0, 1)
+        grad.setCoordinateMode(QGradient.ObjectBoundingMode)
+        grad.setColorAt(0.0, QColor(56,162,219,120))
+        grad.setColorAt(1.0, QColor(56,162,219,20))
+        area.setBrush(QBrush(grad))
+        area.setPen(QPen(Qt.NoPen))
+
+        # ——— 6) Scatter oryginalnych punktów ———
         scatter = QScatterSeries()
         scatter.setMarkerSize(8)
         scatter.setColor(QColor("#38A2DB"))
         scatter.setBorderColor(QColor("#ffffff"))
-        for i, w in enumerate(weights, 1):
-            scatter.append(i, w)
-     
+        for d, w in zip(dates, weights):
+            scatter.append(QDateTime(d).toMSecsSinceEpoch(), w)
+
         def show_tt(pt, state):
             if state:
-                m = months[int(pt.x())-1]
-                QToolTip.showText(QCursor.pos(), f"{m} {int(pt.y())} g")
+                dt = QDateTime.fromMSecsSinceEpoch(int(pt.x())).date().toString("MMM yyyy")
+                QToolTip.showText(QCursor.pos(), f"{dt}: {int(pt.y())} g")
         scatter.hovered.connect(show_tt)
-     
-        # ——— 6) Tworzenie wykresu i osi ———
+
+        # ——— 7) Budujemy QChart ———
         chart = QChart()
-        chart.addSeries(spline)
+        chart.addSeries(area)
+        chart.addSeries(top)
         chart.addSeries(scatter)
         chart.setBackgroundVisible(False)
         chart.legend().hide()
-     
-        axisX = QCategoryAxis()
-        for i, m in enumerate(months, 1):
-            axisX.append(m, i)
-        axisX.setRange(1, len(months) + 0.1 * len(months))
+
+        # ——— 8) Oś X datowa ———
+        axisX = QDateTimeAxis()
+        axisX.setFormat("MMM")
+        axisX.setTitleText("Miesiąc")
+        axisX.setTickCount(len(dates))
+        axisX.setRange(
+            QDateTime(dates[0]),
+            QDateTime(dates[-1].addMonths(1))
+        )
         chart.addAxis(axisX, Qt.AlignBottom)
-        spline.attachAxis(axisX)
-        scatter.attachAxis(axisX)
-     
+        for s in (area, top, scatter):
+            s.attachAxis(axisX)
+
+        # ——— 9) Oś Y ———
         axisY = QValueAxis()
-        axisY.setRange(y_min, y_max)
-        axisY.setLabelFormat("%.0f")
+        axisY.setRange(0, y_max)
+        axisY.setLabelFormat("%d")
+        axisY.setTitleText("Waga [g]")
         chart.addAxis(axisY, Qt.AlignLeft)
-        spline.attachAxis(axisY)
-        scatter.attachAxis(axisY)
-     
-        # ——— 7) Używamy SmoothChartView, który sam narysuje fill pod spline’em ———
-        view = SmoothChartView(chart, spline, y_min)
+        for s in (area, top, scatter):
+            s.attachAxis(axisY)
+
+        # ——— 10) View i porządkowanie GC ———
+        view = QChartView(chart)
+        view.setRenderHint(QPainter.Antialiasing)
+        view.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        view.setStyleSheet("border:none; background-color:transparent;")
         layout.addWidget(view)
-     
-        # ——— 8) Przechowujemy referencje, by obiekty nie zostały usunięte przez GC ———
+
         group._chart   = chart
-        group._spline  = spline
+        group._top     = top
+        group._base    = base 
+        group._area    = area
         group._scatter = scatter
         group._axisX   = axisX
         group._axisY   = axisY
         group._view    = view
-     
+
         return group
 
     def _create_clinic_visits(self) -> QGroupBox:
