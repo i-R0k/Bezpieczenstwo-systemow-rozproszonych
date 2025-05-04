@@ -1,12 +1,11 @@
 import sys
 
 from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QWidget,
-    QHBoxLayout, QVBoxLayout, QGroupBox,
-    QLabel, QPushButton, QLineEdit, QFrame,
-    QTableWidget, QTableWidgetItem,
-    QCalendarWidget, QToolButton, QHeaderView,
-    QSizePolicy, QSplitter, QToolTip
+    QWidget, QHBoxLayout, QVBoxLayout, 
+    QGroupBox, QLabel, QPushButton, QLineEdit, 
+    QFrame, QTableWidget, QTableWidgetItem,
+    QToolButton, QHeaderView, QSizePolicy, 
+    QToolTip
 )
 from PyQt5.QtCore import Qt, QDate, QDateTime
 from PyQt5.QtGui import (
@@ -19,52 +18,39 @@ from PyQt5.QtChart import (
     QDateTimeAxis, QValueAxis
 )
 
-class DoctorDashboardWindow(QMainWindow):
+class DashboardPage(QWidget):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("VetClinic – Dashboard Lekarza")
-        self.setMinimumSize(1080, 720)
-        self.showMaximized()
+        self._setup_ui()
 
-        central = QWidget()
-        self.setCentralWidget(central)
-        main_layout = QHBoxLayout(central)
-        main_layout.setContentsMargins(0, 0, 0, 0)
+    def _setup_ui(self):
+        # główny layout strony (tylko content, bez sidebaru)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(15)
 
-        sidebar = self._create_sidebar()
-        main_layout.addWidget(sidebar)
-
-        content = QWidget()
-        content_layout = QVBoxLayout(content)
-        content_layout.setContentsMargins(20, 20, 20, 20)
-        content_layout.setSpacing(15)
-
+        # --- górny pasek ---
         top_bar = self._create_top_bar()
-        content_layout.addLayout(top_bar)
+        layout.addLayout(top_bar)
 
+        # --- wiersz 1: nadchodzące + poprzednie wizyty ---
         row1 = QHBoxLayout()
         row1.setSpacing(15)
-
         upcoming = self._create_upcoming_visits()
         previous = self._create_previous_visits()
-
         for w in (upcoming, previous):
             w.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
             w.setMinimumWidth(0)
-
         row1.addWidget(upcoming, 1)
         row1.addWidget(previous, 1)
+        layout.addLayout(row1, 3)
 
-        content_layout.addLayout(row1, 3)
-
+        # --- wiersz 2: statystyki wizyt ---
         row2 = QHBoxLayout()
         stats = self._create_appointments_stats()
         stats.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         row2.addWidget(stats)
-
-        content_layout.addLayout(row2, 2)
-
-        main_layout.addWidget(content)
+        layout.addLayout(row2, 2)
 
     def _create_sidebar(self) -> QFrame:
         frame = QFrame()
@@ -409,9 +395,3 @@ class DoctorDashboardWindow(QMainWindow):
         group._view    = view
 
         return group
-
-if __name__ == '__main__':
-    app = QApplication(sys.argv)
-    win = DoctorDashboardWindow()
-    win.show()
-    sys.exit(app.exec_())

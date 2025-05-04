@@ -26,3 +26,4 @@ class Animal(Base):
     appointments = relationship("Appointment", back_populates="doctor")
     appointments = relationship("Appointment", back_populates="animal")
     medical_records = relationship("MedicalRecord", back_populates="animal", cascade="all, delete-orphan",)
+    weight_logs = relationship("WeightLog", back_populates="animal", cascade="all, delete-orphan")
