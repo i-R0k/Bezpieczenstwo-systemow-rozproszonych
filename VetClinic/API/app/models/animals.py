@@ -1,7 +1,10 @@
 from sqlalchemy import Column, Integer, String, Date, Float, Text, DateTime, ForeignKey
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
-from app.core.database import Base
+from core.database import Base
+from models.medical_records import MedicalRecord
+from models.weight_logs import WeightLog
+
 
 class Animal(Base):
     __tablename__ = "animals"
@@ -23,7 +26,6 @@ class Animal(Base):
     last_visit = Column(DateTime(timezone=True), nullable=True, comment="Data ostatniej wizyty zwierzęcia u weterynarza")
     
     owner = relationship("Client", back_populates="animals")
-    appointments = relationship("Appointment", back_populates="doctor")
     appointments = relationship("Appointment", back_populates="animal")
     medical_records = relationship("MedicalRecord", back_populates="animal", cascade="all, delete-orphan",)
     weight_logs = relationship("WeightLog", back_populates="animal", cascade="all, delete-orphan")

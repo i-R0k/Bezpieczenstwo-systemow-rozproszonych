@@ -1,7 +1,7 @@
 from pydantic import BaseModel, EmailStr, field_validator, ConfigDict
 from typing import Union
 from typing import Optional
-from app.validators import (
+from validators import (
     validate_letters,
     validate_email,
     validate_phone_number,
@@ -71,6 +71,60 @@ class ConsultantCreate(UserBase):
 
 # Alias unii dla tworzenia użytkownika – pozwala nam przyjmować jeden typ, który może być klientem, lekarzem lub konsultantem.
 UserCreate = Union[ClientCreate, DoctorCreate, ConsultantCreate]
+
+class UserUpdate(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    password: Optional[str] = None
+    role: Optional[str] = None
+    # pola klienta
+    phone_number: Optional[str] = None
+    address: Optional[str] = None
+    postal_code: Optional[str] = None
+    # pola lekarza
+    specialization: Optional[str] = None
+    permit_number: Optional[str] = None
+
+    @field_validator("first_name")
+    def validate_first_name(cls, value):
+        if value is not None:
+            return validate_letters(value)
+        return value
+
+    @field_validator("last_name")
+    def validate_last_name(cls, value):
+        if value is not None:
+            return validate_letters(value)
+        return value
+
+    @field_validator("email")
+    def validate_email_field(cls, value, info):
+        if value is not None:
+            role = info.data.get("role")
+            return validate_email(value, role=role)
+        return value
+
+    @field_validator("phone_number")
+    def validate_phone(cls, value):
+        if value is not None:
+            return validate_phone_number(value)
+        return value
+
+    @field_validator("postal_code")
+    def validate_postal(cls, value):
+        if value is not None:
+            return validate_postal_code(value)
+        return value
+
+    @field_validator("permit_number")
+    def validate_permit(cls, value):
+        if value is not None:
+            return validate_permit_number(value)
+        return value
+
+# Alias unii dla aktualizacji użytkownika (dowolna z ról)
+UserUpdateUnion = Union[ClientCreate, DoctorCreate, ConsultantCreate, UserUpdate]
 
 
 # Schemat wyjściowy (dla zwracania danych użytkownika z API)

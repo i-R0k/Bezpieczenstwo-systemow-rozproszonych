@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
-from app.models.animals import Animal as AnimalModel
-from app.schemas.animal import AnimalCreate, AnimalUpdate
-from app.validators.animal_chip_validator import validate_animal_chip
+from models.animals import Animal as AnimalModel
+from schemas.animal import AnimalCreate, AnimalUpdate
+from validators.animal_chip_validator import validate_animal_chip
 
 def create_animal(db: Session, animal: AnimalCreate):
     # Jeśli numer mikroczipa jest podany, walidujemy go.

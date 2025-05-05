@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, Float, DateTime, ForeignKey, func
-from app.core.database import Base
+from core.database import Base
 from sqlalchemy.orm import relationship
 
 class WeightLog(Base):

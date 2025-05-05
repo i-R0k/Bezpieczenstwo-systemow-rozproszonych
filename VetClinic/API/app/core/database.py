@@ -4,7 +4,7 @@ Konfiguracja SQLAlchemy: tworzymy silnik, sesję oraz deklarujemy bazę modeli.
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
-from app.core.config import DATABASE_URL
+from core.config import DATABASE_URL
 
 # Utworzenie silnika połączenia do bazy danych
 engine = create_engine(

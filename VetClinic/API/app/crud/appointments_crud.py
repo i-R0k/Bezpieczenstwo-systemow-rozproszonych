@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
-from app.models.appointments import Appointment as AppointmentModel
-from app.schemas.appointment import AppointmentCreate, AppointmentUpdate
+from models.appointments import Appointment as AppointmentModel
+from schemas.appointment import AppointmentCreate, AppointmentUpdate
 
 def get_appointment(db: Session, appointment_id: int):
     return db.query(AppointmentModel).filter(AppointmentModel.id == appointment_id).first()
