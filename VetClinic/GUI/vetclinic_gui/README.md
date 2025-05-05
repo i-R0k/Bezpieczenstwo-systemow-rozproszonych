@@ -1,0 +1,1 @@
+FrontEnd FastAPI dla aplikacji VetClinic.

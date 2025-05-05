@@ -1,6 +1,6 @@
 import pytest
 from sqlalchemy import text
-from app.core.database import engine, SessionLocal
+from vetclinic_api.core.database import engine, SessionLocal
 from sqlalchemy.exc import OperationalError
 
 def test_database_connection():

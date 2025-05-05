@@ -2,10 +2,10 @@
 
 import pytest
 from fastapi.testclient import TestClient
-from app.main import app  # Upewnij się, że ścieżka importu jest poprawna (app/main.py)
+from vetclinic_api.main import app 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from app.core.database import Base, get_db
+from vetclinic_api.core.database import Base, get_db
 
 # Konfiguracja testowej bazy danych – tutaj używamy SQLite w pliku testowym,
 # możesz też użyć bazy pamięciowej ("sqlite:///:memory:")
