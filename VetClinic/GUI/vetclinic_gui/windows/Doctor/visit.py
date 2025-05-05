@@ -5,186 +5,223 @@ from PyQt5.QtWidgets import (
     QPushButton, QTableWidget, QTableWidgetItem,
     QMessageBox, QApplication
 )
-from vetclinic_gui.services.animals_service import AnimalService
-from vetclinic_gui.services.appointments_service import AppointmentService
-from vetclinic_gui.services.clients_service import UserService
 import sys
 
+from vetclinic_gui.services.animals_service      import AnimalService
+from vetclinic_gui.services.appointments_service import AppointmentService
+from vetclinic_gui.services.clients_service      import UserService
+
 class VisitsWindow(QWidget):
-    """
-    Ekran zarządzania wizytami dla danego lekarza.
-    """
     navigate = pyqtSignal(str)
 
     def __init__(self, doctor_id: int):
         super().__init__()
         self.doctor_id = doctor_id
-        self.clients = []  # lista załadowanych klientów
+
+        # miejsce na wszystkie rekordy pobrane z API:
+        self.clients = []
+        self.animals = []
+
         self._setup_ui()
-        self._load_animals()
-        self._load_clients()
-        self._load_previous_visits()
+        self._load_data()   # teraz wczytamy i zintegrujemy wszystko
 
     def _setup_ui(self):
-       self.setWindowTitle("Wizyty")
-       # główny układ pionowy
-       layout = QVBoxLayout(self)
-       layout.setContentsMargins(15, 15, 15, 15)
-       layout.setSpacing(10)
+        self.setWindowTitle("Wizyty")
+        self.resize(1200, 800)
 
-       # --- Wyszukaj opiekuna ---
-       self.search_le = QLineEdit()
-       self.search_le.setPlaceholderText("🔍 Wyszukaj opiekuna...")
-       self.search_le.setStyleSheet(
-           "QLineEdit { border:1px solid #ccc; border-radius:20px; padding:8px 12px; background:#fff; }"
-           "QLineEdit:focus { border:1px solid #38a2db; }"
-       )
-       self.search_le.textChanged.connect(self._filter_owners)
-       layout.addWidget(self.search_le)
+        main = QVBoxLayout(self)
+        main.setContentsMargins(15,15,15,15)
+        main.setSpacing(10)
 
-       # --- Pasek akcji (przycisk Zapisz) ---
-       bar = QHBoxLayout()
-       bar.addStretch()
-       self.save_btn = QPushButton("Zapisz wizytę")
-       self.save_btn.setCursor(Qt.PointingHandCursor)
-       self.save_btn.setStyleSheet(
-           "QPushButton { background-color:#38a2db; color:#fff; padding:8px 16px; border:none; border-radius:4px; }"
-           "QPushButton:hover { background-color:#2f8acb; }"
-       )
-       self.save_btn.clicked.connect(self._on_save_visit)
-       bar.addWidget(self.save_btn)
-       layout.addLayout(bar)
+        # --- Search bar (filter klientów) ---
+        self.search_le = QLineEdit()
+        self.search_le.setPlaceholderText("🔍 Wyszukaj opiekuna...")
+        self.search_le.setStyleSheet(
+            "QLineEdit{border:1px solid #ccc; border-radius:20px; padding:8px 12px;}"
+            "QLineEdit:focus{border-color:#38a2db;}"
+        )
+        self.search_le.textChanged.connect(self._filter_clients)
+        main.addWidget(self.search_le)
 
-       # --- Formularz wizyty (Appointment) ---
-       form_box = QGroupBox("Nowa wizyta")
-       form_box.setStyleSheet(
-           "QGroupBox { background:#fff; border:1px solid #e0e0e0; border-radius:8px; padding:12px; }"
-           "QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; padding:0 5px; font-weight:bold; }"
-       )
-       form_layout = QFormLayout(form_box)
-       self.datetime_edit = QDateTimeEdit(QDateTime.currentDateTime())
-       self.datetime_edit.setCalendarPopup(True)
-       self.animal_cb = QComboBox()
-       self.client_cb = QComboBox()
-       self.status_cb = QComboBox()
-       self.status_cb.addItems(["zaplanowana", "odwołana", "zakończona"])
-       self.reason_te = QTextEdit()
-       self.reason_te.setFixedHeight(60)
-       self.notes_te = QTextEdit()
-       self.notes_te.setFixedHeight(80)
+        # --- Action bar ---
+        hb = QHBoxLayout(); hb.addStretch()
+        self.save_btn = QPushButton("Zapisz wizytę")
+        self.save_btn.setCursor(Qt.PointingHandCursor)
+        self.save_btn.setStyleSheet(
+            "QPushButton{background:#38a2db;color:#fff;padding:8px 16px;border-radius:4px;}"
+            "QPushButton:hover{background:#2f8acb;}"
+        )
+        self.save_btn.clicked.connect(self._on_save_visit)
+        hb.addWidget(self.save_btn)
+        main.addLayout(hb)
 
-       form_layout.addRow("Data i czas:",      self.datetime_edit)
-       form_layout.addRow("Zwierzę:",           self.animal_cb)
-       form_layout.addRow("Właściciel:",        self.client_cb)
-       form_layout.addRow("Status:",            self.status_cb)
-       form_layout.addRow("Powód wizyty:",      self.reason_te)
-       form_layout.addRow("Uwagi wizyty:",      self.notes_te)
-       layout.addWidget(form_box)
+        # --- Formularz wizyty ---
+        self.datetime_edit = QDateTimeEdit(QDateTime.currentDateTime())
+        self.datetime_edit.setCalendarPopup(True)
+        self.animal_cb   = QComboBox()
+        self.client_cb   = QComboBox()
+        self.status_cb   = QComboBox(); self.status_cb.addItems(["zaplanowana","odwołana","zakończona"])
+        self.reason_te   = QTextEdit(); self.reason_te.setFixedHeight(60)
+        self.notes_te    = QTextEdit(); self.notes_te.setFixedHeight(80)
 
-       # --- Dane zwierzęcia (Animal) ---
-       info_box = QGroupBox("Dane zwierzęcia")
-       info_box.setStyleSheet(form_box.styleSheet())
-       info_layout = QFormLayout(info_box)
-       self.species_le      = QLineEdit()
-       self.breed_le        = QLineEdit()
-       self.gender_le       = QLineEdit()
-       self.birthdate_le    = QLineEdit()
-       self.age_le          = QLineEdit()
-       self.weight_le       = QLineEdit()
-       self.microchip_le    = QLineEdit()
-       self.animal_notes_te = QTextEdit()
-       self.animal_notes_te.setFixedHeight(60)
+        # kiedy się zmieni zwierzę lub klient:
+        self.animal_cb.currentIndexChanged.connect(self._on_animal_change)
+        self.client_cb.currentIndexChanged.connect(self._on_client_change)
 
-       info_layout.addRow("Gatunek:",           self.species_le)
-       info_layout.addRow("Rasa:",              self.breed_le)
-       info_layout.addRow("Płeć:",              self.gender_le)
-       info_layout.addRow("Data ur.:",          self.birthdate_le)
-       info_layout.addRow("Wiek:",              self.age_le)
-       info_layout.addRow("Waga (kg):",         self.weight_le)
-       info_layout.addRow("Mikroczip:",         self.microchip_le)
-       info_layout.addRow("Uwagi zwierzęcia:",  self.animal_notes_te)
-       layout.addWidget(info_box)
+        form_box = QGroupBox("Nowa wizyta")
+        form_box.setStyleSheet("QGroupBox{background:#fff;border:1px solid #e0e0e0;border-radius:8px;}") 
+        frm = QFormLayout(form_box)
+        frm.addRow("Data i czas:",   self.datetime_edit)
+        frm.addRow("Zwierzę:",       self.animal_cb)
+        frm.addRow("Właściciel:",    self.client_cb)
+        frm.addRow("Status:",        self.status_cb)
+        frm.addRow("Powód wizyty:",  self.reason_te)
+        frm.addRow("Uwagi wizyty:",  self.notes_te)
+        main.addWidget(form_box)
 
-       # --- Poprzednie wizyty ---
-       prev_box = QGroupBox("Poprzednie wizyty")
-       prev_box.setStyleSheet(form_box.styleSheet())
-       prev_layout = QVBoxLayout(prev_box)
-       self.prev_table = QTableWidget(0, 6)
-       self.prev_table.setHorizontalHeaderLabels([
-           "ID", "Data i czas", "Zwierzę", "Właściciel", "Status", "Powód"
-       ])
-       self.prev_table.cellDoubleClicked.connect(self._on_edit_visit)
-       prev_layout.addWidget(self.prev_table)
-       layout.addWidget(prev_box)
+        # --- Dane zwierzęcia ---
+        self.species_le    = QLineEdit();  self.species_le.setReadOnly(True)
+        self.breed_le      = QLineEdit();  self.breed_le.setReadOnly(True)
+        self.gender_le     = QLineEdit();  self.gender_le.setReadOnly(True)
+        self.birthdate_le  = QLineEdit();  self.birthdate_le.setReadOnly(True)
+        self.age_le        = QLineEdit();  self.age_le.setReadOnly(True)
+        self.weight_le     = QLineEdit();  self.weight_le.setReadOnly(True)
+        self.microchip_le  = QLineEdit();  self.microchip_le.setReadOnly(True)
+        self.animal_notes  = QTextEdit();  self.animal_notes.setReadOnly(True); self.animal_notes.setFixedHeight(60)
 
-    def _load_animals(self):
-        # 1) pobieramy wszystkie obiekty Animal i zapisujemy je w self.animals
-        self.animals = AnimalService.list()
-        # 2) czyścimy combobox
-        self.animal_cb.clear()
-        # 3) wypełniamy go na podstawie atrybutów obiektów
-        for animal in self.animals:
-            self.animal_cb.addItem(animal.name, animal.id)
+        info_box = QGroupBox("Dane zwierzęcia")
+        info_box.setStyleSheet(form_box.styleSheet())
+        inf = QFormLayout(info_box)
+        inf.addRow("Gatunek:",        self.species_le)
+        inf.addRow("Rasa:",           self.breed_le)
+        inf.addRow("Płeć:",           self.gender_le)
+        inf.addRow("Data ur.:",       self.birthdate_le)
+        inf.addRow("Wiek:",           self.age_le)
+        inf.addRow("Waga (kg):",      self.weight_le)
+        inf.addRow("Mikroczip:",      self.microchip_le)
+        inf.addRow("Uwagi zwierzęcia:", self.animal_notes)
+        main.addWidget(info_box)
 
-        # 4) jeśli mamy przynajmniej jedno zwierzę, ustawiamy je jako wybrane
-        if self.animals:
-            self.animal_cb.setCurrentIndex(0)
-            # i od razu aktualizujemy pola formularza
-            self._on_animal_change(0)
-    
-    def _load_clients(self):
+        # --- Poprzednie wizyty ---
+        self.prev_table = QTableWidget(0,6)
+        self.prev_table.setHorizontalHeaderLabels([
+            "ID","Data i czas","Zwierzę","Właściciel","Status","Powód"
+        ])
+        self.prev_table.cellDoubleClicked.connect(self._on_edit_visit)
+        prev_box = QGroupBox("Poprzednie wizyty")
+        prev_box.setStyleSheet(form_box.styleSheet())
+        vb = QVBoxLayout(prev_box)
+        vb.addWidget(self.prev_table)
+        main.addWidget(prev_box)
+
+    def _load_data(self):
+        # pobierz z API i zapamiętaj
         self.clients = UserService.list()
-        self.client_cb.clear()
-        for client in self.clients:
-            name = f"{client.first_name} {client.last_name}"
-            self.client_cb.addItem(name, client.id)
-    
-    def _refresh_client_cb(self, clients):
-        self.client_cb.clear()
-        for c in clients:
-            full = f"{c.get('first_name','')} {c.get('last_name','')}"
-            self.client_cb.addItem(full, c['id'])
+        self._populate_clients(self.clients)
 
-    def _filter_owners(self, text: str):
-        keyword = text.lower().strip()
-        if not keyword:
-            filtered = self.clients
+        self.animals  = AnimalService.list()
+        # na start wyświetlam wszystkich, ale _on_client_change zaindeksuje
+        self._populate_animals(self.animals)
+
+        # wywołaj raz, aby spiąć pola
+        if self.client_cb.count(): 
+            self._on_client_change(0)
+
+    def _populate_clients(self, clients_list):
+        self.client_cb.blockSignals(True)
+        self.client_cb.clear()
+        for c in clients_list:
+            label = f"{c.first_name} {c.last_name}"
+            self.client_cb.addItem(label, c.id)
+        self.client_cb.blockSignals(False)
+
+    def _populate_animals(self, animals_list):
+        self.animal_cb.blockSignals(True)
+        self.animal_cb.clear()
+        for a in animals_list:
+            self.animal_cb.addItem(a.name, a.id)
+        self.animal_cb.blockSignals(False)
+
+    def _filter_clients(self, text: str):
+        txt = text.lower()
+        filtered = [c for c in self.clients
+                    if txt in f"{c.first_name} {c.last_name}".lower()]
+        self._populate_clients(filtered)
+        # od razu odświeżamy zwierzęta dla nowego zaznaczenia
+        if self.client_cb.count():
+            self._on_client_change(0)
+
+    def _on_client_change(self, index: int):
+        owner_id = self.client_cb.currentData()
+        # pokażemy tylko zwierzęta tego właściciela
+        own_animals = [a for a in self.animals if a.owner_id == owner_id]
+        self._populate_animals(own_animals)
+        # i od razu zaktualizuj szczegóły dla pierwszego
+        if own_animals:
+            self._on_animal_change(0)
         else:
-            filtered = [c for c in self.clients if keyword in f"{c.get('first_name','')} {c.get('last_name','')}".lower()]
-        self._refresh_client_cb(filtered)
+            # jeżeli brak zwierząt, wyczyść pola
+            for w in [self.species_le, self.breed_le, self.gender_le,
+                      self.birthdate_le, self.age_le, self.weight_le,
+                      self.microchip_le, self.animal_notes]:
+                w.clear()
+            self.prev_table.setRowCount(0)
+
+    def _on_animal_change(self, index: int):
+        animal_id = self.animal_cb.currentData()
+        animal = next((a for a in self.animals if a.id == animal_id), None)
+        if not animal:
+            return
+
+        # gatunek, rasa, płeć
+        self.species_le.setText(animal.species or "")
+        self.breed_le.setText(animal.breed or "")
+        self.gender_le.setText(animal.gender or "")
+
+        # data urodzenia jako string
+        if animal.birth_date:
+            # jeśli birth_date jest datetime.date
+            bd_str = (
+                animal.birth_date.isoformat()
+                if hasattr(animal.birth_date, "isoformat")
+                else str(animal.birth_date)
+            )
+        else:
+            bd_str = ""
+        self.birthdate_le.setText(bd_str)
+
+        # wiek i waga
+        self.age_le.setText(str(animal.age or ""))
+        self.weight_le.setText(str(animal.weight or ""))
+
+        # mikroczip i notatki
+        self.microchip_le.setText(animal.microchip_number or "")
+        self.animal_notes.setPlainText(animal.notes or "")
+
+        # upewnij się, że combobox właściciela wskazuje prawidłowe ID
+        owner_idx = self.client_cb.findData(animal.owner_id)
+        if owner_idx != -1:
+            self.client_cb.blockSignals(True)
+            self.client_cb.setCurrentIndex(owner_idx)
+            self.client_cb.blockSignals(False)
+
+        # odśwież poprzednie wizyty
+        self._load_previous_visits()
+
 
     def _load_previous_visits(self):
-        # pobieramy wszystkie wizyty z serwisu
-        all_visits = AppointmentService.list()
-        # ID aktualnie wybranego zwierzęcia i zalogowanego lekarza
+        all_v = AppointmentService.list()
         aid = self.animal_cb.currentData()
-        did = self.doctor_id
+        visits = [v for v in all_v
+                  if v.animal_id == aid and v.doctor_id == self.doctor_id]
 
-        # czyścimy tabelę
         self.prev_table.setRowCount(0)
-
-        # filtrujemy obiekty Appointment zamiast słowników
-        for visit in all_visits:
-            if visit.animal_id == aid and visit.doctor_id == did:
-                row = self.prev_table.rowCount()
-                self.prev_table.insertRow(row)
-
-                # przygotowujemy wartości do wstawienia
-                values = [
-                    visit.id,
-                    # formatujemy datę i czas
-                    visit.visit_datetime.strftime("%Y-%m-%d %H:%M"),
-                    # relacja do Animal
-                    visit.animal.name,
-                    # relacja do Client/Owner
-                    f"{visit.owner.first_name} {visit.owner.last_name}",
-                    visit.status,
-                    visit.reason or ""
-                ]
-
-                # wypełniamy komórki tabeli
-                for col, val in enumerate(values):
-                    self.prev_table.setItem(row, col, QTableWidgetItem(str(val)))
+        for v in visits:
+            r = self.prev_table.rowCount(); self.prev_table.insertRow(r)
+            for c, key in enumerate(
+                ["id","visit_datetime","animal_name","owner_name","status","reason"]
+            ):
+                self.prev_table.setItem(r, c, QTableWidgetItem(str(getattr(v, key, ""))))  
 
     def _on_save_visit(self):
         payload = {
@@ -215,33 +252,7 @@ class VisitsWindow(QWidget):
         self.reason_te.setPlainText(visit.get('reason',''))
         self.notes_te.setPlainText(visit.get('notes',''))
 
-    def _on_animal_change(self, index: int):
-        # pobieramy aktualne ID zwierzęcia z comboboxa
-        animal_id = self.animal_cb.currentData()
-        # szukamy instancji Animal w liście self.animals
-        animal = next((a for a in self.animals if a.id == animal_id), None)
-        if not animal:
-            return
 
-        # wczytanie pól Animal
-        self.species_le.setText(animal.species or "")
-        self.breed_le.setText(animal.breed or "")
-        self.gender_le.setText(animal.gender or "")
-        self.birthdate_le.setText(animal.birth_date.isoformat() if animal.birth_date else "")
-        self.age_le.setText(str(animal.age) if animal.age is not None else "")
-        self.weight_le.setText(str(animal.weight) if animal.weight is not None else "")
-        self.microchip_le.setText(animal.microchip_number or "")
-        self.animal_notes_te.setPlainText(animal.notes or "")
-
-        # ustawienie comboboxa właściciela – korzystamy z self.client_cb
-        # i listy self.clients wypełnionej w _load_users
-        owner_idx = self.client_cb.findData(animal.owner_id)
-        if owner_idx != -1:
-            self.client_cb.setCurrentIndex(owner_idx)
-
-        # odświeżamy poprzednie wizyty
-        self._load_previous_visits()
-    
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     w = VisitsWindow(doctor_id=1)
