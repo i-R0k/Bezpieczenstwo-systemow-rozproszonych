@@ -4,7 +4,7 @@ Importuje wszystkie moduły, rejestruje routery, konfiguruje bazę danych.
 """
 
 from fastapi import FastAPI
-from vetclinic_api.routers import users, appointments, animals, medical_records, invoices
+from vetclinic_api.routers import users, appointments, animals, medical_records, invoices, weight_logs
 from vetclinic_api.core.database import engine, Base
 
 app = FastAPI(
@@ -19,6 +19,7 @@ app.include_router(appointments.router)
 app.include_router(animals.router)
 app.include_router(medical_records.router)
 app.include_router(invoices.router)
+app.include_router(weight_logs.router)
 
 # Tworzenie tabel w bazie danych (jeśli nie istnieją)
 Base.metadata.create_all(bind=engine)
