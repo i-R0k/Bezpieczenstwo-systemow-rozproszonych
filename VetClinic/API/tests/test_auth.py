@@ -6,8 +6,8 @@ import datetime  # używamy jeśli potrzebne w testach, choć warning dotyczy lo
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from app.main import app  # Główny punkt FastAPI
-from app.core.database import Base, get_db
+from vetclinic_api.main import app  # Główny punkt FastAPI
+from vetclinic_api.core.database import Base, get_db
 
 # Konfiguracja testowej bazy SQLite
 SQLALCHEMY_DATABASE_URL = "sqlite:///./test.db"
