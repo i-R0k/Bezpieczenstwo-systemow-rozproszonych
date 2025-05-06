@@ -8,7 +8,7 @@ def test_create_client():
     user_data = {
         "first_name": "Jan",
         "last_name": "Kowalski",
-        "email": "jan.kowalski@example.com",
+        "email": "jan.kowalsky@example.com",
         "password": "tajnehaslo",
         "role": "klient",
         "phone_number": "+48123456789",

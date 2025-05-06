@@ -6,6 +6,7 @@ from vetclinic_api.main import app
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from vetclinic_api.core.database import Base, get_db
+from vetclinic_api.models.users import Client
 
 # Konfiguracja testowej bazy danych – tutaj używamy SQLite w pliku testowym,
 # możesz też użyć bazy pamięciowej ("sqlite:///:memory:")
@@ -45,3 +46,9 @@ def override_get_db(db_session):
 def client():
     with TestClient(app) as test_client:
         yield test_client
+
+
+@pytest.fixture(autouse=True)
+def clean_clients_table(db_session):
+    db_session.query(Client).delete()
+    db_session.commit()

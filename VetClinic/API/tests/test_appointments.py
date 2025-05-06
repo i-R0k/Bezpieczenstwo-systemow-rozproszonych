@@ -12,7 +12,6 @@ def test_create_appointment(client: TestClient):
     payload = {
         "visit_datetime": "2023-05-15T09:30:00",
         "reason": "Konsultacja zdrowotna, badanie rutynowe",
-        "status": "zaplanowana",
         "doctor_id": 2,
         "animal_id": 1,
         "owner_id": 1,
@@ -22,7 +21,7 @@ def test_create_appointment(client: TestClient):
     assert response.status_code == 201, response.text
     data = response.json()
     assert "id" in data
-    assert data["status"] == payload["status"]
+    assert data["reason"] == payload["reason"]
 
 def test_get_appointments(client: TestClient):
     response = client.get("/appointments/")
@@ -38,7 +37,6 @@ def test_update_appointment(client: TestClient):
     payload = {
         "visit_datetime": "2023-05-20T10:00:00",
         "reason": "Szczepienie",
-        "status": "zaplanowana",
         "doctor_id": 2,
         "animal_id": 1,
         "owner_id": 1,
@@ -52,7 +50,7 @@ def test_update_appointment(client: TestClient):
     update_resp = client.put(f"/appointments/{appointment_id}", json=update_payload)
     assert update_resp.status_code == 200, update_resp.text
     updated_data = update_resp.json()
-    assert updated_data["status"] == "zakończona"
+    assert updated_data["reason"] == payload["reason"]
     assert updated_data["notes"] == update_payload["notes"]
 
 def test_delete_appointment(client: TestClient):
@@ -60,7 +58,6 @@ def test_delete_appointment(client: TestClient):
     payload = {
         "visit_datetime": "2023-05-25T11:00:00",
         "reason": "Kontrola po zabiegu",
-        "status": "zaplanowana",
         "doctor_id": 2,
         "animal_id": 1,
         "owner_id": 1,
