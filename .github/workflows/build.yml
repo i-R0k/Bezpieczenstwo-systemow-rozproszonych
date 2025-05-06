@@ -20,6 +20,8 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
           pip install pytest pytest-cov
 
       - name: Run tests and generate coverage report
@@ -31,6 +33,4 @@ jobs:
         with:
           organization: PSK-projekty
           projectKey: PSK-projekty_VetClinic
-          # opcjonalnie, jeżeli repo w SonarCloud ma inny klucz:
-          # projectKey: PSK-projekty_Programowanie-Defensywne_VetClinic
           token: ${{ secrets.SONAR_TOKEN }}
