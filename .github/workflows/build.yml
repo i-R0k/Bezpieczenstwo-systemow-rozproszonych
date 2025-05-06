@@ -22,7 +22,6 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r VetClinic/requirements.txt
           pip install -r VetClinic/requirements-dev.txt
-
           pip install pytest pytest-cov
 
       - name: Run tests and generate coverage report
@@ -30,10 +29,14 @@ jobs:
           export PYTHONPATH=$PYTHONPATH:./VetClinic/API
           pytest --cov=VetClinic --cov-report=xml
 
-
       - name: SonarCloud Scan
-        uses: SonarSource/sonarcloud-github-action@master
+        uses: SonarSource/sonarqube-scan-action@v5.0.0
         with:
-          organization: PSK-projekty
-          projectKey: PSK-projekty_VetClinic
-          token: ${{ secrets.SONAR_TOKEN }}
+          args: >
+            -Dsonar.projectKey=PSK-projekty_VetClinic
+            -Dsonar.organization=PSK-projekty
+            -Dsonar.sources=VetClinic/API
+            -Dsonar.host.url=https://sonarcloud.io
+            -Dsonar.python.coverage.reportPaths=coverage.xml
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
