@@ -1,6 +1,6 @@
 from vetclinic_api.crud.animal_crud import get_animals, get_animal, create_animal, update_animal, delete_animal
 from vetclinic_api.core.database import SessionLocal
-from vetclinic_api.schemas import animal as AnimalSchema
+from vetclinic_api.schemas import animal as AnimalSchemaW
 
 class AnimalService:
     @staticmethod
