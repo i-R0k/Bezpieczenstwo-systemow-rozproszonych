@@ -33,7 +33,7 @@ jobs:
         uses: SonarSource/sonarqube-scan-action@v5.0.0
         with:
           args: >
-            -Dsonar.projectKey=psk-projekty_Programowanie-Defensywne
+            -Dsonar.projectKey=PSK-projekty_Programowanie-Defensywne
             -Dsonar.organization=psk-projekty
             -Dsonar.sources=VetClinic/API
             -Dsonar.host.url=https://sonarcloud.io
