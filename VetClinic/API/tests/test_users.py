@@ -1,5 +1,7 @@
 from fastapi.testclient import TestClient
 from vetclinic_api.main import app
+from vetclinic_api.main import app
+import uuid
 
 client = TestClient(app)
 
@@ -8,7 +10,7 @@ def test_create_client():
     user_data = {
         "first_name": "Jan",
         "last_name": "Kowalski",
-        "email": "jan.kowalsky@example.com",
+        "email": f"jan.kowalsky+{uuid.uuid4()}@example.com",
         "password": "tajnehaslo",
         "role": "klient",
         "phone_number": "+48123456789",
