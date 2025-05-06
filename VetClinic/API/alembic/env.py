@@ -9,10 +9,10 @@ from sqlalchemy import engine_from_config, pool
 from alembic import context
 
 # Importuj bazę modeli (Base) oraz modele
-from app.core.database import Base
-from app.models.users import *
-from app.models.animals import *
-from app.models.appointments import *
+from vetclinic_api.core.database import Base
+from vetclinic_api.models.users import *
+from vetclinic_api.models.animals import *
+from vetclinic_api.models.appointments import *
 
 config = context.config
 

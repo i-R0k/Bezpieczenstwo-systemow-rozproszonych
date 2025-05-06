@@ -1,11 +1,11 @@
-import os, sys
+import sys
 from PyQt5.QtWidgets import QApplication, QInputDialog, QMessageBox
 from vetclinic_gui.windows.Doctor.main_window import MainWindow
 
 def main():
     app = QApplication(sys.argv)
 
-    # 1) Pytamy o rolę
+    # 1) Wybór roli
     roles = ["Doktor", "Recepcjonista", "Admin"]
     role_name, ok = QInputDialog.getItem(
         None,
@@ -18,17 +18,27 @@ def main():
     if not ok:
         QMessageBox.information(None, "Koniec", "Nie wybrano roli. Kończę.")
         sys.exit(0)
+    role_map = {"Doktor": "doctor", "Recepcjonista": "receptionist", "Admin": "admin"}
+    user_role = role_map[role_name]
 
-    # 2) Mapowanie na wewnętrzny klucz
-    role_map = {
-        "Doktor": "doctor",
-        "Recepcjonista": "receptionist",
-        "Admin": "admin"
-    }
-    user_role = role_map.get(role_name, "doctor")
+    # 2) Jeżeli to doktor – poproś o ID
+    doctor_id = None
+    if user_role == "doctor":
+        doctor_id, ok = QInputDialog.getInt(
+            None,
+            "ID lekarza",
+            "Podaj identyfikator lekarza (liczba całkowita):",
+            value=1,   # domyślna wartość
+            min=1,     # minimalna
+            max=9999,  # dowolne
+            step=1
+        )
+        if not ok:
+            QMessageBox.information(None, "Koniec", "Nie podano ID lekarza. Kończę.")
+            sys.exit(0)
 
-    # 3) Startujemy główne okno z rolą
-    window = MainWindow(user_role=user_role)
+    # 3) Uruchom główne okno, przekazując user_role i doctor_id
+    window = MainWindow(user_role=user_role, doctor_id=doctor_id)
     window.show()
     sys.exit(app.exec_())
 

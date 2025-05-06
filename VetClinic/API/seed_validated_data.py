@@ -131,16 +131,44 @@ def main():
 
     # 5) Wizyty
     visits_data = [
-        {"doctor_id":2,"animal_id":1,"owner_id":2,"visit_datetime":"2025-04-20T09:00:00",
-         "reason":"Kontrola szczepienia","status":"zakończona","notes":""},
-        {"doctor_id":2,"animal_id":2,"owner_id":3,"visit_datetime":"2025-04-22T14:00:00",
-         "reason":"Zabieg kleszcza","status":"odwołana","notes":""},
-        {"doctor_id":3,"animal_id":3,"owner_id":2,"visit_datetime":"2025-05-01T11:15:00",
-         "reason":"Badanie krwi","status":"zaplanowana","notes":""},
+        {
+            "doctor_id":    2,
+            "animal_id":    1,
+            "owner_id":     2,
+            "visit_datetime":"2025-04-20T09:00:00",
+            "reason":       "Kontrola szczepienia",
+            "notes":        "",
+            "treatment":    "Szczepienie przeciwko wściekliźnie",
+            "priority":     "normalna",
+            "weight":       29.5
+        },
+        {
+            "doctor_id":    2,
+            "animal_id":    2,
+            "owner_id":     3,
+            "visit_datetime":"2025-04-22T14:00:00",
+            "reason":       "Usunięcie kleszcza",
+            "notes":        "",
+            "treatment":    "Lokalne odkażenie + antybiotyk",
+            "priority":     "pilna",
+            "weight":       5.0
+        },
+        {
+            "doctor_id":    3,
+            "animal_id":    3,
+            "owner_id":     2,
+            "visit_datetime":"2025-05-01T11:15:00",
+            "reason":       "Badanie krwi",
+            "notes":        "",
+            "treatment":    "",         
+            "priority":     "normalna",
+            "weight":       2.4
+        },
     ]
     for data in visits_data:
         cond = db.query(Appointment).filter_by(
-            animal_id=data["animal_id"], visit_datetime=data["visit_datetime"]
+            animal_id=data["animal_id"],
+            visit_datetime=data["visit_datetime"]
         ).first()
         if cond:
             print(f"⏭ Wizyta {data['visit_datetime']} już istnieje, pomijam")
