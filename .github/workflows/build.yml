@@ -20,17 +20,17 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pytest pytest-cov sonar-scanner
+          pip install pytest pytest-cov
 
       - name: Run tests and generate coverage report
         run: |
           pytest --cov=VetClinic --cov-report=xml
 
       - name: SonarCloud Scan
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: |
-          sonar-scanner \
-            -Dsonar.login=$SONAR_TOKEN \
-            -Dsonar.organization=PSK-projekty \
-            -Dsonar.projectKey=PSK-projekty_VetClinic
+        uses: SonarSource/sonarcloud-github-action@master
+        with:
+          organization: PSK-projekty
+          projectKey: PSK-projekty_VetClinic
+          # opcjonalnie, jeżeli repo w SonarCloud ma inny klucz:
+          # projectKey: PSK-projekty_Programowanie-Defensywne_VetClinic
+          token: ${{ secrets.SONAR_TOKEN }}
