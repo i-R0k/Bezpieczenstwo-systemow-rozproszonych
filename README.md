@@ -173,17 +173,15 @@ Projekt został zbudowany w oparciu o Pythonowy stos technologiczny:
 - ✅ Implementacja CRUD dla wpisów medycznych (dodawanie, edycja, usuwanie, przeglądanie historii leczenia).
 - ✅ Powiązanie danych medycznych z konkretnymi wizytami i zwierzętami.
 - ✅ Dodanie mechanizmów walidacji danych medycznych.
-
 - ✅ Napisanie testów jednostkowych dla operacji CRUD na danych medycznych.
-
-* ✅ Stworzenie podstawowego interfejsu do przeglądania historii leczenia (w GUI lub jako widok w aplikacji web).
+- ✅ Stworzenie podstawowego interfejsu do przeglądania historii leczenia (w GUI lub jako widok w aplikacji web).
 
 ### Tydzień 7: Testy jednostkowe i analiza statyczna kodu
 
-- [ ] Konfiguracja narzędzi do analizy statycznej (np. SonarQube, flake8, pylint) i analiza kodu.
-- [ ] Przeprowadzenie refaktoryzacji kodu zgodnie z wynikami analizy.
-- [ ] Integracja testów jednostkowych w procesie CI/CD (np. GitHub Actions).
-- [ ] Sporządzenie dokumentacji dotyczącej strategii testowania i wyników analizy.
+- ✅ Konfiguracja narzędzi do analizy statycznej (np. SonarQube, flake8, pylint) i analiza kodu.
+- ✅ Przeprowadzenie refaktoryzacji kodu zgodnie z wynikami analizy.
+- ✅ Integracja testów jednostkowych w procesie CI/CD (np. GitHub Actions).
+- ✅ Sporządzenie dokumentacji dotyczącej strategii testowania i wyników analizy.
 
 ### Tydzień 8: Wdrożenie zabezpieczeń i optymalizacja backendu
 
