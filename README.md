@@ -185,11 +185,13 @@ Projekt został zbudowany w oparciu o Pythonowy stos technologiczny:
 
 ### Tydzień 8: Wdrożenie zabezpieczeń i optymalizacja backendu
 
-- [ ] Implementacja zabezpieczeń przed atakami typu SQL Injection i XSS.
-- [ ] Wprowadzenie mechanizmów ograniczania prób logowania (np. blokada po kilku nieudanych próbach).
-- [ ] Przeprowadzenie testów penetracyjnych (przy użyciu narzędzi OWASP ZAP lub podobnych).
-- [ ] Usprawnienie konfiguracji FastAPI pod kątem wydajności i bezpieczeństwa.
-- [ ] Dokumentacja wdrożonych zabezpieczeń oraz przeprowadzonych testów.
+- ✅ Implementacja zabezpieczeń przed atakami typu SQL Injection i XSS.
+- ✅ Wprowadzenie mechanizmów ograniczania prób logowania (np. blokada po kilku nieudanych próbach).
+
+* ✅ Przeprowadzenie testów penetracyjnych (przy użyciu narzędzi OWASP ZAP lub podobnych).
+* ✅ Usprawnienie konfiguracji FastAPI pod kątem wydajności i bezpieczeństwa.
+
+* ✅ Dokumentacja wdrożonych zabezpieczeń oraz przeprowadzonych testów.
 
 ### Tydzień 9: Przygotowanie środowiska blockchain
 
