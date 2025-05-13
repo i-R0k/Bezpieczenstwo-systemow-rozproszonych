@@ -6,6 +6,7 @@ from sqlalchemy import Column, Integer, String
 from vetclinic_api.core.database import Base
 from sqlalchemy.orm import relationship
 from sqlalchemy.types import Boolean
+from sqlalchemy import DateTime
 
 class Client(Base):
     __tablename__ = "clients"
@@ -20,6 +21,8 @@ class Client(Base):
     postal_code = Column(String, nullable=False)
     totp_secret = Column(String, nullable=True, default=None)
     totp_confirmed = Column(Boolean, default=False)
+    failed_login_attempts = Column(Integer, default=0, nullable=False)
+    locked_until = Column(DateTime, nullable=True)
 
     animals = relationship("Animal", back_populates="owner")
     appointments = relationship("Appointment", back_populates="owner")
@@ -41,6 +44,8 @@ class Doctor(Base):
     permit_number = Column(String, nullable=False)
     totp_secret = Column(String, nullable=True, default=None)
     totp_confirmed = Column(Boolean, default=False)
+    failed_login_attempts = Column(Integer, default=0, nullable=False)
+    locked_until = Column(DateTime, nullable=True)
 
     appointments = relationship("Appointment", back_populates="doctor")
     
@@ -59,6 +64,8 @@ class Consultant(Base):
     password_hash = Column(String, nullable=False)
     totp_secret = Column(String, nullable=True, default=None)
     totp_confirmed = Column(Boolean, default=False)
+    failed_login_attempts = Column(Integer, default=0, nullable=False)
+    locked_until = Column(DateTime, nullable=True)
     
     @property
     def role(self):

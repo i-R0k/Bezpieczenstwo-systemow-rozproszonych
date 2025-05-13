@@ -32,3 +32,17 @@ pytest
 http://127.0.0.1:8000/docs – Swagger UI
 
 http://127.0.0.1:8000/redoc – ReDoc
+
+
+## OWASP ZEP
+
+```bash
+cd "C:\Program Files\ZAP\Zed Attack Proxy"
+```
+
+```bash
+.\zap.bat -cmd `
+  -quickurl http://localhost:8000/docs `
+  -quickout "D:\Studia\2 stopień\I semestr\Programowanie Defensywne\Projekt\Programowanie-Defensywne\zap-reports\active.html" `
+  -quickprogress
+```

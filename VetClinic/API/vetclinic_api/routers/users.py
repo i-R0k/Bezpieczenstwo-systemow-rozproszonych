@@ -4,6 +4,7 @@ Router do obsługi endpointów związanych z użytkownikami.
 
 import datetime
 import pyotp
+from datetime import datetime, timedelta
 from qrcode import make as generate_qr_code
 from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from fastapi.responses import JSONResponse
@@ -27,7 +28,7 @@ def get_db():
         db.close()
 
 MAX_FAILS = 5
-BLOCK_SECONDS = 15 * 60
+BLOCK_PERIOD = timedelta(seconds=15 * 60)
 
 @router.post("/register", response_model=schemas.UserOut, status_code=status.HTTP_201_CREATED)
 def register_client(user: schemas.ClientCreate, db: Session = Depends(get_db)):
@@ -63,80 +64,73 @@ def read_users(db: Session = Depends(get_db)):
 
 @router.post("/login")
 async def login(
-    request: Request,
     user_credentials: schemas.UserLogin,
     force_provision: bool = Query(False, description="Jeśli True, wymusza ponowną konfigurację TOTP"),
     db: Session = Depends(get_db)
 ):
-    """
-    Endpoint logowania z blokadą po 5 nieudanych próbach (15 min).
-    """
-    redis = request.app.state.redis
-    base_key = f"login:{user_credentials.email}"
-    fails_key = f"{base_key}:fails"
-    lock_key  = f"{base_key}:locked"
+    now = datetime.utcnow()
+    user = get_user_by_email(db, user_credentials.email)
 
-    # 1) Sprawdź, czy konto jest już zablokowane
-    if await redis.exists(lock_key):
-        ttl = await redis.ttl(lock_key)
-        minutes = ttl // 60
+    # --- 1) Czy konto jest zablokowane? ---
+    if user and user.locked_until and user.locked_until > now:
+        remaining = int((user.locked_until - now).total_seconds() // 60) + 1
         raise HTTPException(
             status_code=status.HTTP_423_LOCKED,
-            detail=f"Konto zablokowane – spróbuj ponownie za {minutes} min."
+            detail=f"Konto zablokowane – spróbuj ponownie za {remaining} min."
         )
 
-    # 2) Weryfikacja użytkownika i hasła
-    user = get_user_by_email(db, user_credentials.email)
+    # --- 2) Weryfikacja email/hasło ---
     if not user or not verify_password(user_credentials.password, user.password_hash):
-        fails = await redis.incr(fails_key)
-        if fails == 1:
-            await redis.expire(fails_key, BLOCK_SECONDS)
-        if fails >= MAX_FAILS:
-            await redis.set(lock_key, "1", expire=BLOCK_SECONDS)
-            raise HTTPException(
-                status_code=status.HTTP_423_LOCKED,
-                detail="Zbyt wiele nieudanych prób – konto zablokowane na 15 min."
-            )
+        if user:
+            user.failed_login_attempts += 1
+            if user.failed_login_attempts >= MAX_FAILS:
+                user.locked_until = now + BLOCK_PERIOD
+                user.failed_login_attempts = 0
+            db.commit()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid email or password"
+            detail="Nieprawidłowy email lub hasło"
         )
 
-    # 3) Udane logowanie – reset licznika
-    await redis.delete(fails_key)
+    # --- 3) Udane logowanie: reset licznika i blokady ---
+    user.failed_login_attempts = 0
+    user.locked_until = None
+    db.commit()
 
-    # 4) TOTP: wymuś provisioning jeśli trzeba
+    # --- 4) Provisioning TOTP, jeżeli trzeba ---
     if force_provision or not user.totp_secret:
-        totp_secret = pyotp.random_base32()
-        user.totp_secret = totp_secret
+        user.totp_secret = pyotp.random_base32()
         user.totp_confirmed = False
         db.commit()
 
-    if not user_credentials.totp_code:
+    # Jeżeli nie wysłano kodu lub użytkownik nie potwierdził TOTP, zwracamy URI
+    if not user_credentials.totp_code or not user.totp_confirmed:
         if not user.totp_confirmed:
             totp = pyotp.TOTP(user.totp_secret)
-            totp_uri = totp.provisioning_uri(name=user.email, issuer_name="VetClinic")
+            uri = totp.provisioning_uri(name=user.email, issuer_name="VetClinic")
             return JSONResponse(
                 status_code=status.HTTP_201_CREATED,
-                content={"need_totp": True, "totp_uri": totp_uri}
+                content={"need_totp": True, "totp_uri": uri}
             )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="TOTP code required"
+            detail="Kod TOTP wymagany"
         )
 
-    # 5) Weryfikacja TOTP
+    # --- 5) Weryfikacja kodu TOTP ---
     totp = pyotp.TOTP(user.totp_secret)
     if not totp.verify(user_credentials.totp_code):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid TOTP code"
+            detail="Nieprawidłowy kod TOTP"
         )
 
-    # 6) Generowanie i zwrot tokena JWT
-    payload = {"user_id": user.id, "email": user.email, "role": user.role}
-    access_token = create_access_token(data=payload, expires_delta=datetime.timedelta(hours=1))
-    return {"access_token": access_token, "token_type": "bearer", "role": user.role}
+    # --- 6) Generowanie i zwrot JWT ---
+    token = create_access_token(
+        data={"user_id": user.id, "email": user.email, "role": user.role},
+        expires_delta=timedelta(hours=1)
+    )
+    return {"access_token": token, "token_type": "bearer", "role": user.role}
 
 @router.post("/setup-totp")
 def setup_totp(email: str, db: Session = Depends(get_db)):
