@@ -5,14 +5,31 @@ from PyQt5.QtWidgets import (
     QPushButton, QStackedWidget,
     QFrame, QLabel
 )
-from .dashboard import DashboardPage
-from .visit import VisitsWindow
+
+from .Admin.settings import AdminSettingsPage
+from .Admin.facilityPage import CreateFacilityPage
+from .Admin.createConsultant import CreateConsultantPage
+
+from .Receptionist.dashboard import ReceptionistDashboardPage
+from .Receptionist.registration import RegistrationPage
+from .Receptionist.scheduleVisitPage import ScheduleVisitPage
+
+from .Doctor.dashboard import DashboardPage
+from .Doctor.visit import VisitsWindow
+
+from .Client.dashboard import DashboardPage
 
 class MainWindow(QMainWindow):
-    def __init__(self, user_role: str, doctor_id: int = None):
+    def __init__(
+        self,
+        user_role: str,
+        doctor_id: int = None,
+        receptionist_id: int = None,
+    ):
         super().__init__()
         self.user_role = user_role
-        self.doctor_id = doctor_id  # ID zalogowanego lekarza
+        self.doctor_id = doctor_id
+        self.receptionist_id = receptionist_id
         self.pages_map = {}
         self.setWindowTitle("VetClinic")
         self.setMinimumSize(1080, 720)
@@ -28,17 +45,31 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(sidebar)
 
         self.pages = QStackedWidget()
-        role_pages = {
-            "doctor": [
+
+        if self.user_role == "admin":
+            pages = [
+                ("Ustawienia", AdminSettingsPage),
+                ("Placówka", CreateFacilityPage),
+                ("Recepcjonista", CreateConsultantPage)
+            ]
+        elif self.user_role == "receptionist":
+            pages = [
+                ("Dashboard", ReceptionistDashboardPage),
+                ("Rejestracja", RegistrationPage),
+                ("Umawianie wizyt", ScheduleVisitPage),
+            ]
+        elif self.user_role == "doctor":
+            pages = [
                 ("Dashboard", DashboardPage),
                 ("Wizyty", VisitsWindow),
-            ],
-            "receptionist": [
-                ("Wizyty", VisitsWindow),
-            ],
-        }
+            ]
+        elif self.user_role == "client":
+            pages = [
+                ("Dashboard", DashboardPage)
+            ]
 
-        for label, PageClass in role_pages.get(self.user_role, []):
+        # Tworzenie przycisków sidebaru i stron
+        for label, PageClass in pages:
             btn = QPushButton(label)
             btn.setCursor(Qt.PointingHandCursor)
             btn.setFlat(True)
@@ -49,11 +80,14 @@ class MainWindow(QMainWindow):
             btn.clicked.connect(lambda _, l=label: self._navigate_to(l))
             sidebar.layout().addWidget(btn)
 
-            # Instantiate page, pass doctor_id to VisitsWindow
-            if label == "Wizyty":
+            # Instancjonowanie strony z odpowiednimi parametrami
+            if PageClass is VisitsWindow:
                 page = PageClass(self.doctor_id)
+            elif PageClass in (ReceptionistDashboardPage, RegistrationPage):
+                page = PageClass(self.receptionist_id)
             else:
                 page = PageClass()
+
             idx = self.pages.count()
             self.pages.addWidget(page)
             self.pages_map[label] = idx

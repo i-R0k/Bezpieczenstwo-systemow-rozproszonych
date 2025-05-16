@@ -1,5 +1,7 @@
 import os
 
+API_BASE_URL = "http://127.0.0.1:8000"
+
 PROJECT_ROOT = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "..")
 )

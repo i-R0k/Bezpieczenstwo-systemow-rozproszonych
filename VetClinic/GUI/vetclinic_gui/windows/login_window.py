@@ -5,7 +5,7 @@ import requests
 import qrcode
 
 from PyQt5 import QtCore, QtGui, QtWidgets
-from vetclinic_gui.windows.Doctor.main_window import MainWindow
+from vetclinic_gui.windows.main_window import MainWindow
 
 API_LOGIN_URL = "http://127.0.0.1:8000/users/login"
 API_CONFIRM_TOTP_URL = "http://127.0.0.1:8000/users/confirm-totp"

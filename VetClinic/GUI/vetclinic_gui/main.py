@@ -1,12 +1,12 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QInputDialog, QMessageBox
-from vetclinic_gui.windows.Doctor.main_window import MainWindow
+from vetclinic_gui.windows.main_window import MainWindow
 
 def main():
     app = QApplication(sys.argv)
 
     # 1) Wybór roli
-    roles = ["Doktor", "Recepcjonista", "Admin"]
+    roles = ["Administrator","Recepcjonista","Lekarza","Klient"]
     role_name, ok = QInputDialog.getItem(
         None,
         "Wybór grupy użytkownika",
@@ -18,7 +18,7 @@ def main():
     if not ok:
         QMessageBox.information(None, "Koniec", "Nie wybrano roli. Kończę.")
         sys.exit(0)
-    role_map = {"Doktor": "doctor", "Recepcjonista": "receptionist", "Admin": "admin"}
+    role_map = {"Doktor": "doctor", "Recepcjonista": "receptionist", "Admin": "admin", "klient": "client"}
     user_role = role_map[role_name]
 
     # 2) Jeżeli to doktor – poproś o ID
