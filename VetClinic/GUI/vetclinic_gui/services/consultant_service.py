@@ -1,26 +1,32 @@
-from typing import List
-from vetclinic_api.schemas.users import UserOut
-from vetclinic_api.crud.users_crud import (
-    get_users, get_user,
-    create_user as crud_create_user,
-    update_user as crud_update_user,
-    delete_user as crud_delete_user
-)
-
+import requests
+from types import SimpleNamespace
+from vetclinic_api.core.config import API_BASE_URL
 
 class ConsultantService:
     @staticmethod
-    def list() -> List[UserOut]:
-        """Pobiera wszystkich konsultantów (role='consultant')."""
+    def list() -> list:
+        url = f"{API_BASE_URL}/consultants"
+        resp = requests.get(url)
+        resp.raise_for_status()
+        data = resp.json()
+        return [SimpleNamespace(**item) for item in data]
+
     @staticmethod
-    def get(user_id: int) -> UserOut:
-        """Szczegóły konsultanta."""
+    def create(payload: dict) -> SimpleNamespace:
+        url = f"{API_BASE_URL}/consultants"
+        resp = requests.post(url, json=payload)
+        resp.raise_for_status()
+        return SimpleNamespace(**resp.json())
+
     @staticmethod
-    def create(payload: dict) -> UserOut:
-        """Tworzy nowego konsultanta."""
+    def update(consultant_id: int, payload: dict) -> SimpleNamespace:
+        url = f"{API_BASE_URL}/consultants/{consultant_id}"
+        resp = requests.put(url, json=payload)
+        resp.raise_for_status()
+        return SimpleNamespace(**resp.json())
+
     @staticmethod
-    def update(user_id: int, payload: dict) -> UserOut:
-        """Modyfikuje dane konsultanta."""
-    @staticmethod
-    def deactivate(user_id: int) -> None:
-        """Dezaktywuje konsultanta (lub usuwa)."""
+    def delete(consultant_id: int) -> None:
+        url = f"{API_BASE_URL}/consultants/{consultant_id}"
+        resp = requests.delete(url)
+        resp.raise_for_status()
