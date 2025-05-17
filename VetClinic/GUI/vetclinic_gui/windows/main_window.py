@@ -7,7 +7,7 @@ from PyQt5.QtWidgets import (
 )
 
 from .Admin.settings import AdminSettingsPage
-from .Admin.facilityPage import CreateFacilityPage
+from .Admin.facilityPage import FacilitiesPage
 from .Admin.createConsultant import CreateConsultantPage
 
 from .Receptionist.dashboard import ReceptionistDashboardPage
@@ -17,7 +17,7 @@ from .Receptionist.scheduleVisitPage import ScheduleVisitPage
 from .Doctor.dashboard import DashboardPage
 from .Doctor.visit import VisitsWindow
 
-from .Client.dashboard import DashboardPage
+from .Client.dashboard import DashboardWindow
 
 class MainWindow(QMainWindow):
     def __init__(
@@ -49,7 +49,7 @@ class MainWindow(QMainWindow):
         if self.user_role == "admin":
             pages = [
                 ("Ustawienia", AdminSettingsPage),
-                ("Placówka", CreateFacilityPage),
+                ("Placówki", FacilitiesPage),
                 ("Recepcjonista", CreateConsultantPage)
             ]
         elif self.user_role == "receptionist":
@@ -65,7 +65,7 @@ class MainWindow(QMainWindow):
             ]
         elif self.user_role == "client":
             pages = [
-                ("Dashboard", DashboardPage)
+                ("Dashboard", DashboardWindow)
             ]
 
         # Tworzenie przycisków sidebaru i stron

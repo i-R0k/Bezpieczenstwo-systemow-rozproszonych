@@ -149,12 +149,12 @@ class ProportionalImageLabel(QtWidgets.QLabel):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._pixmap = None
-        self._aspect_ratio = None  # przechowuje stosunek szerokości do wysokości
+        self._aspect_ratio = None  
         self.setAlignment(QtCore.Qt.AlignCenter)
         self.setSizePolicy(QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Expanding)
 
     def setPixmap(self, pixmap):
-        # Zaokrąglamy obrazek przy użyciu round_pixmap (promień 20 pikseli)
+
         rounded = round_pixmap(pixmap, 45 )
         self._pixmap = rounded
         if self._pixmap and not self._pixmap.isNull():

@@ -69,7 +69,6 @@ class ConsultantCreate(UserBase):
         return validate_email(value, role=role)
 
 
-# Alias unii dla tworzenia użytkownika – pozwala nam przyjmować jeden typ, który może być klientem, lekarzem lub konsultantem.
 UserCreate = Union[ClientCreate, DoctorCreate, ConsultantCreate]
 
 class UserUpdate(BaseModel):

@@ -11,6 +11,7 @@ import vetclinic_api.models.animals
 import vetclinic_api.models.appointments
 import vetclinic_api.models.medical_records
 import vetclinic_api.models.users
+import vetclinic_api.models.facility
 
 # Tworzymy wszystkie tabele w produkcyjnej bazie
 Base.metadata.create_all(bind=engine)

@@ -29,11 +29,13 @@ class AppointmentBase(BaseModel):
     owner_id: int = Field(
         ..., description="ID właściciela zwierzęcia"
     )
+    facility_id: int = Field(
+        ..., description="ID placówki, w której odbywa się wizyta"
+    )
     notes: Optional[str] = Field(
         None, description="Dodatkowe uwagi"
     )
 
-    # dzięki temu możemy zwracać ORM-owe modele w odpowiedziach
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -80,5 +82,4 @@ class Appointment(AppointmentBase):
     created_at: datetime
     updated_at: datetime
 
-    # w odpowiedziach REST możemy od razu podawać ORM-owe atrybuty:
     model_config = ConfigDict(from_attributes=True)

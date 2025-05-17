@@ -2,7 +2,7 @@ from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QFormLayout, QLineEdit, QPushButton, QMessageBox, QLabel
 )
 
-from vetclinic_gui.services.users_service import UserService
+from vetclinic_gui.services.consultant_service import ConsultantService
 
 class CreateConsultantPage(QWidget):
     """
@@ -46,7 +46,7 @@ class CreateConsultantPage(QWidget):
             "created_by": self.admin_id,
         }
         try:
-            UserService.create(payload)
+            ConsultantService.create(payload)
             QMessageBox.information(self, "Sukces", "Konsultant został dodany.")
             for w in (self.first_name_le, self.last_name_le, self.email_le, self.phone_le):
                 w.clear()
