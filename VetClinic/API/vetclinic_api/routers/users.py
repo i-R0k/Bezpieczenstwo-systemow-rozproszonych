@@ -1,9 +1,10 @@
 import datetime
 import pyotp
 from datetime import timedelta
+from typing import List
 from qrcode import make as generate_qr_code
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Body
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
@@ -62,6 +63,11 @@ def delete_user_endpoint(user_id: int, db: Session = Depends(get_db)):
     if not ok:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Client not found")
 
+@router.delete("/", status_code=status.HTTP_204_NO_CONTENT)
+def delete_many_users(user_ids: List[int] = Body(...), db: Session = Depends(get_db)):
+    for user_id in user_ids:
+        delete_client(db, user_id)
+    return
 
 @router.post("/login")
 def login(

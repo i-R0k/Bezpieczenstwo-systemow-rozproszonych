@@ -4,7 +4,7 @@ from PyQt5.QtWidgets import (
 )
 from datetime import datetime
 
-from vetclinic_gui.services.clients_service import UserService
+from vetclinic_gui.services.clients_service import ClientService
 from vetclinic_gui.services.appointments_service import AppointmentService
 
 class RegistrationPage(QWidget):
@@ -46,7 +46,7 @@ class RegistrationPage(QWidget):
             "address":    self.address_le.text(),
         }
         try:
-            UserService.create(payload)
+            ClientService.create(payload)
             QMessageBox.information(self, "Sukces", "Użytkownik został zarejestrowany.")
             for w in [
                 self.first_name_le, self.last_name_le,

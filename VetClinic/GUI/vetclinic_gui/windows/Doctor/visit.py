@@ -12,7 +12,7 @@ import sys
 
 from vetclinic_gui.services.animals_service      import AnimalService
 from vetclinic_gui.services.appointments_service import AppointmentService
-from vetclinic_gui.services.clients_service      import UserService
+from vetclinic_gui.services.clients_service      import ClientService
 
 
 class VisitsWindow(QWidget):
@@ -291,7 +291,7 @@ class VisitsWindow(QWidget):
         main_layout.addWidget(prev_box)
 
     def _load_data(self):
-        self.clients = UserService.list()
+        self.clients = ClientService.list()
         self._populate_clients(self.clients)
         self._update_owner_completer()
 

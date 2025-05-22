@@ -4,7 +4,7 @@ from PyQt5.QtWidgets import (
 )
 from datetime import datetime, date
 
-from vetclinic_gui.services.clients_service import UserService
+from vetclinic_gui.services.clients_service import ClientService
 from vetclinic_gui.services.appointments_service import AppointmentService
 
 class ReceptionistDashboardPage(QWidget):

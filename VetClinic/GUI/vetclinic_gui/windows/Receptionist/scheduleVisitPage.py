@@ -6,7 +6,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import QDate, QTime
 from datetime import datetime
 
-from vetclinic_gui.services.clients_service import UserService
+from vetclinic_gui.services.clients_service import ClientService
 from vetclinic_gui.services.animals_service import AnimalService
 from vetclinic_gui.services.doctors_service import DoctorService
 from vetclinic_gui.services.appointments_service import AppointmentService
@@ -30,7 +30,7 @@ class ScheduleVisitPage(QWidget):
 
         # Wybór klienta
         self.client_cb = QComboBox()
-        self.clients = UserService.list()
+        self.clients = ClientService.list()
         for client in self.clients:
             self.client_cb.addItem(f"{client.first_name} {client.last_name}", client.id)
         self.client_cb.currentIndexChanged.connect(self._on_client_changed)

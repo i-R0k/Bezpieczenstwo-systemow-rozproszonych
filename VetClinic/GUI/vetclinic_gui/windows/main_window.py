@@ -10,6 +10,7 @@ from .Admin.settings import AdminSettingsPage
 from .Admin.facilitys import FacilitiesPage
 from .Admin.consultants import ConsultantsPage
 from .Admin.doctors import DoctorsPage
+from .Admin.clients import ClientsPage
 
 from .Receptionist.dashboard import ReceptionistDashboardPage
 from .Receptionist.registration import RegistrationPage
@@ -53,6 +54,7 @@ class MainWindow(QMainWindow):
                 ("Placówki", FacilitiesPage),
                 ("Konsultanci", ConsultantsPage),
                 ("Lekarze", DoctorsPage),
+                ("Klienci", ClientsPage),
             ]
         elif self.user_role == "receptionist":
             pages = [

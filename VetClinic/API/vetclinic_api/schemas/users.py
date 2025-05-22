@@ -145,8 +145,15 @@ class DoctorOut(BaseModel):
     first_name: str
     last_name: str
     email: EmailStr
+    backup_email: Optional[EmailStr] = None
     specialization: str
     permit_number: str
+
+    @field_validator("backup_email", mode="before")
+    def _empty_str_to_none(cls, v):
+        if isinstance(v, str) and not v:
+            return None
+        return v
 
     model_config = ConfigDict(from_attributes=True)
 
