@@ -1,7 +1,7 @@
 from vetclinic_gui.services.db import SessionLocal
 from vetclinic_api.crud.users_crud import (
-    get_users, get_user, create_user as crud_create_user,
-    update_user as crud_update_user, delete_user as crud_delete_user
+    get_client, create_client as crud_create_user,
+    update_client as crud_update_user, delete_client as crud_delete_user
 )
 from vetclinic_api.schemas.users import UserCreate, UserUpdate
 
@@ -13,7 +13,7 @@ class UserService:
     def list():
         db = SessionLocal()
         try:
-            return get_users(db)
+            return get_client(db)
         finally:
             db.close()
 
@@ -21,7 +21,7 @@ class UserService:
     def get(user_id: int):
         db = SessionLocal()
         try:
-            return get_user(db, user_id)
+            return get_client(db, user_id)
         finally:
             db.close()
 

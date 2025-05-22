@@ -16,3 +16,5 @@ class Facility(Base):
     updated_at = Column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
 
     appointments = relationship("Appointment", back_populates="facility")
+    consultants = relationship("Consultant", back_populates="facility")
+

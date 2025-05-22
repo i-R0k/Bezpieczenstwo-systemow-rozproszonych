@@ -9,6 +9,7 @@ from PyQt5.QtWidgets import (
 from .Admin.settings import AdminSettingsPage
 from .Admin.facilitys import FacilitiesPage
 from .Admin.consultants import ConsultantsPage
+from .Admin.doctors import DoctorsPage
 
 from .Receptionist.dashboard import ReceptionistDashboardPage
 from .Receptionist.registration import RegistrationPage
@@ -50,7 +51,8 @@ class MainWindow(QMainWindow):
             pages = [
                 ("Ustawienia", AdminSettingsPage),
                 ("Placówki", FacilitiesPage),
-                ("konsultanci", ConsultantsPage)
+                ("Konsultanci", ConsultantsPage),
+                ("Lekarze", DoctorsPage),
             ]
         elif self.user_role == "receptionist":
             pages = [

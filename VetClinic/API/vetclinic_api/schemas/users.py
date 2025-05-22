@@ -1,6 +1,5 @@
 from pydantic import BaseModel, EmailStr, field_validator, ConfigDict
-from typing import Union
-from typing import Optional
+from typing import Union, Optional, Literal
 from vetclinic_api.validators import (
     validate_letters,
     validate_email,
@@ -60,13 +59,16 @@ class DoctorCreate(UserBase):
 
 # Schemat dla konsultanta
 class ConsultantCreate(UserBase):
-    password: str
-    role: str  # powinno być "konsultant"
+    password: Optional[str] = None
+    role: str = "consultant"
+    facility_id: int 
+    backup_email: EmailStr
 
     @field_validator("email")
     def validate_consultant_email(cls, value, info):
-        role = info.data.get("role")
-        return validate_email(value, role=role)
+        if value is not None:
+            return validate_email(value, role="consultant")
+        return value
 
 
 UserCreate = Union[ClientCreate, DoctorCreate, ConsultantCreate]
@@ -77,11 +79,11 @@ class UserUpdate(BaseModel):
     email: Optional[EmailStr] = None
     password: Optional[str] = None
     role: Optional[str] = None
-    # pola klienta
+    facility_id: Optional[int]      = None
+    backup_email: Optional[EmailStr] = None
     phone_number: Optional[str] = None
     address: Optional[str] = None
     postal_code: Optional[str] = None
-    # pola lekarza
     specialization: Optional[str] = None
     permit_number: Optional[str] = None
 
@@ -125,11 +127,44 @@ class UserUpdate(BaseModel):
 # Alias unii dla aktualizacji użytkownika (dowolna z ról)
 UserUpdateUnion = Union[ClientCreate, DoctorCreate, ConsultantCreate, UserUpdate]
 
-
 # Schemat wyjściowy (dla zwracania danych użytkownika z API)
-class UserOut(UserBase):
+class ClientOut(BaseModel):
     id: int
-    role: str
+    first_name: str
+    last_name: str
+    email: EmailStr
+    phone_number: str
+    address: str
+    postal_code: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DoctorOut(BaseModel):
+    id: int
+    first_name: str
+    last_name: str
+    email: EmailStr
+    specialization: str
+    permit_number: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ConsultantOut(BaseModel):
+    id: int
+    first_name: str
+    last_name: str
+    email: EmailStr
+    facility_id: int
+    backup_email: Optional[EmailStr] = None
+    must_change_password: Optional[bool] = None
+
+    @field_validator("backup_email", mode="before")
+    def _empty_str_to_none(cls, v):
+        if isinstance(v, str) and not v:
+            return None
+        return v
 
     model_config = ConfigDict(from_attributes=True)
 

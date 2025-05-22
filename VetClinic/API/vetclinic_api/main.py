@@ -4,6 +4,8 @@ Importuje wszystkie moduły, rejestruje routery, konfiguruje bazę danych.
 """
 
 from fastapi import FastAPI
+from dotenv import load_dotenv
+load_dotenv()
 import uvicorn
 
 from vetclinic_api.routers import (

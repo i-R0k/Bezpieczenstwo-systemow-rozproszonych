@@ -5,28 +5,27 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt
 
-from vetclinic_gui.services.facility_service import FacilityService
+from vetclinic_gui.services.doctors_service import DoctorService
 
-class FacilitiesPage(QWidget):
+class DoctorsPage(QWidget):
     """
-    Pełny CRUD placówek: przegląd, dodawanie, usuwanie, modyfikacja i zapis zmian,
-    z ujednoliconym stylem zgodnym z ConsultantsPage.
+    Pełny CRUD lekarzy: przegląd, dodawanie, usuwanie, modyfikacja i zapis zmian.
+    Stylizacja zgodna z ConsultantsPage i FacilitiesPage.
     """
     def __init__(self, admin_id=None):
         super().__init__()
         self.admin_id = admin_id
         self._deleted_ids = set()
         self._setup_ui()
-        self._load_facilities()
+        self._load_doctors()
 
     def _setup_ui(self):
-        # Główny układ
         layout = QVBoxLayout(self)
         layout.setContentsMargins(24, 24, 24, 24)
         layout.setSpacing(16)
 
-        # Tytuł
-        title = QLabel("Zarządzanie placówkami")
+        # Nagłówek
+        title = QLabel("Zarządzanie lekarzami")
         title.setStyleSheet("""
             font-size: 20px;
             font-weight: bold;
@@ -35,25 +34,27 @@ class FacilitiesPage(QWidget):
         """)
         layout.addWidget(title)
 
-        # --- Tabela placówek ---
-        # kolumny: 0=ID(hidden), 1=Nazwa, 2=Adres, 3=Telefon
-        self.table = QTableWidget(0, 4)
-        self.table.setHorizontalHeaderLabels(["ID", "Nazwa", "Adres", "Telefon"])
+        # Tabela: 6 kolumn (ID ukryte, Imię, Nazwisko, Email, Specjalizacja, Nr pozwolenia)
+        self.table = QTableWidget(0, 6)
+        self.table.setHorizontalHeaderLabels([
+            "ID", "Imię", "Nazwisko", "Email",
+            "Specjalizacja", "Nr pozw."
+        ])
         self.table.hideColumn(0)
 
-        # pionowy nagłówek ukryty, stała wysokość wiersza
+        # Stała wysokość wiersza i ukryty pionowy nagłówek
         vh = self.table.verticalHeader()
         vh.setVisible(False)
         vh.setSectionResizeMode(QHeaderView.Fixed)
         vh.setDefaultSectionSize(48)
 
-        # zachowanie tabeli
+        # Pozostałe ustawienia
         self.table.setAlternatingRowColors(True)
         self.table.setShowGrid(True)
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
         self.table.setSelectionMode(QTableWidget.SingleSelection)
 
-        # stylizacja tabeli i edytowalnych pól
+        # Stylizacja
         self.table.setStyleSheet("""
             QTableWidget {
                 background-color: #FFFFFF;
@@ -79,24 +80,25 @@ class FacilitiesPage(QWidget):
             }
         """)
 
-        # proporcje kolumn
+        # Proporcje kolumn
         hdr = self.table.horizontalHeader()
-        hdr.setSectionResizeMode(1, QHeaderView.Stretch)         # nazwa
-        hdr.setSectionResizeMode(2, QHeaderView.Stretch)         # adres
-        hdr.setSectionResizeMode(3, QHeaderView.ResizeToContents) # telefon
+        hdr.setSectionResizeMode(1, QHeaderView.Stretch)         # Imię
+        hdr.setSectionResizeMode(2, QHeaderView.Stretch)         # Nazwisko
+        hdr.setSectionResizeMode(3, QHeaderView.Stretch)         # Email
+        hdr.setSectionResizeMode(4, QHeaderView.Stretch)         # Specjalizacja
+        hdr.setSectionResizeMode(5, QHeaderView.ResizeToContents) # Nr pozwolenia
         hdr.setStretchLastSection(False)
 
         layout.addWidget(self.table)
 
-        # --- Przyciski operacji ---
+        # Przyciski
         btn_layout = QHBoxLayout()
         btn_layout.setSpacing(12)
 
-        self.add_btn = QPushButton("Dodaj placówkę")
+        self.add_btn    = QPushButton("Dodaj lekarza")
         self.remove_btn = QPushButton("Usuń zaznaczone")
-        self.save_btn = QPushButton("Zapisz zmiany")
+        self.save_btn   = QPushButton("Zapisz zmiany")
 
-        # wspólny styl dla przycisków Dodaj/Usuń
         for btn in (self.add_btn, self.remove_btn):
             btn.setCursor(Qt.PointingHandCursor)
             btn.setFixedHeight(32)
@@ -112,7 +114,6 @@ class FacilitiesPage(QWidget):
                     background-color: #F3F4F6;
                 }
             """)
-        # styl dla przycisku Zapisz
         self.save_btn.setCursor(Qt.PointingHandCursor)
         self.save_btn.setFixedHeight(32)
         self.save_btn.setStyleSheet("""
@@ -128,7 +129,6 @@ class FacilitiesPage(QWidget):
             }
         """)
 
-        # podpięcie akcji
         self.add_btn.clicked.connect(self._on_add)
         self.remove_btn.clicked.connect(self._on_remove)
         self.save_btn.clicked.connect(self._on_save)
@@ -139,36 +139,53 @@ class FacilitiesPage(QWidget):
         btn_layout.addWidget(self.save_btn)
         layout.addLayout(btn_layout)
 
-    def _load_facilities(self):
+    def _load_doctors(self):
         self.table.setRowCount(0)
-        for fac in FacilityService.list():
+        doctors = DoctorService.list() or []
+
+        for doc in doctors:
             row = self.table.rowCount()
             self.table.insertRow(row)
-            # ID ukryte
-            self.table.setItem(row, 0, QTableWidgetItem(str(fac.id)))
-            # Nazwa, Adres jako QLineEdit (że można edytować inline)
-            name_le = QLineEdit(fac.name)
-            name_le.setFixedHeight(28)
-            self.table.setCellWidget(row, 1, name_le)
 
-            addr_le = QLineEdit(fac.address)
-            addr_le.setFixedHeight(28)
-            self.table.setCellWidget(row, 2, addr_le)
+            # ID
+            self.table.setItem(row, 0, QTableWidgetItem(str(doc.id)))
 
-            phone_le = QLineEdit(fac.phone or "")
-            phone_le.setFixedHeight(28)
-            self.table.setCellWidget(row, 3, phone_le)
+            # Imię, Nazwisko, Email
+            for col, value in ((1, doc.first_name),
+                               (2, doc.last_name),
+                               (3, doc.email)):
+                le = QLineEdit(value or "")
+                le.setFixedHeight(28)
+                self.table.setCellWidget(row, col, le)
+
+            # Specjalizacja (getattr zabezpiecza brak pola)
+            spec = getattr(doc, "specialization", "")
+            spec_le = QLineEdit(spec)
+            spec_le.setFixedHeight(28)
+            self.table.setCellWidget(row, 4, spec_le)
+
+            # Numer pozwolenia
+            permit = getattr(doc, "permit_number", "")
+            permit_le = QLineEdit(permit)
+            permit_le.setFixedHeight(28)
+            self.table.setCellWidget(row, 5, permit_le)
 
     def _on_add(self):
         row = self.table.rowCount()
         self.table.insertRow(row)
-        # puste edytowalne pola
-        for col in (1, 2, 3):
+
+        # Imię, Nazwisko, Email, Specjalizacja, Nr pozwolenia
+        placeholders = {
+            1: "Imię",
+            2: "Nazwisko",
+            3: "Email",
+            4: "Specjalizacja",
+            5: "Nr pozwolenia"
+        }
+        for col in (1, 2, 3, 4, 5):
             le = QLineEdit()
             le.setFixedHeight(28)
-            if col == 1: le.setPlaceholderText("Nazwa")
-            if col == 2: le.setPlaceholderText("Adres")
-            if col == 3: le.setPlaceholderText("Telefon")
+            le.setPlaceholderText(placeholders[col])
             self.table.setCellWidget(row, col, le)
 
     def _on_remove(self):
@@ -181,32 +198,38 @@ class FacilitiesPage(QWidget):
 
     def _on_save(self):
         try:
-            # Usuń skasowane
-            for fid in self._deleted_ids:
-                FacilityService.delete(fid)
+            # Usuń zaznaczonych
+            for did in self._deleted_ids:
+                DoctorService.delete(did)
             self._deleted_ids.clear()
 
-            # Stwórz/aktualizuj
+            # Przetworzenie wierszy
             for row in range(self.table.rowCount()):
                 id_item = self.table.item(row, 0)
-                name_le  = self.table.cellWidget(row, 1)
-                addr_le  = self.table.cellWidget(row, 2)
-                phone_le = self.table.cellWidget(row, 3)
+                is_update = bool(id_item and id_item.text())
+
+                # Pobierz wartości z QLineEdit
+                first_le  = self.table.cellWidget(row, 1)
+                last_le   = self.table.cellWidget(row, 2)
+                email_le  = self.table.cellWidget(row, 3)
+                spec_le   = self.table.cellWidget(row, 4)
+                permit_le = self.table.cellWidget(row, 5)
 
                 payload = {
-                    "name":    name_le.text().strip()  if name_le  else "",
-                    "address": addr_le.text().strip()  if addr_le  else "",
-                    "phone":   phone_le.text().strip() if phone_le else "",
+                    "first_name":    first_le .text().strip() if first_le  else "",
+                    "last_name":     last_le  .text().strip() if last_le   else "",
+                    "email":         email_le .text().strip() if email_le  else "",
+                    "specialization": spec_le .text().strip() if spec_le   else "",
+                    "permit_number": permit_le.text().strip() if permit_le else "",
                 }
 
-                if id_item and id_item.text():
-                    FacilityService.update(int(id_item.text()), payload)
+                if is_update:
+                    DoctorService.update(int(id_item.text()), payload)
                 else:
-                    payload["created_by"] = self.admin_id
-                    FacilityService.create(payload)
+                    DoctorService.create(payload)
 
             QMessageBox.information(self, "Sukces", "Zmiany zostały zapisane.")
-            self._load_facilities()
+            self._load_doctors()
 
         except Exception as e:
             QMessageBox.critical(self, "Błąd zapisu", str(e))
