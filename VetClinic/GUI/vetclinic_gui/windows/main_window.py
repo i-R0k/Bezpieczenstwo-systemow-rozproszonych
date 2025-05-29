@@ -13,8 +13,10 @@ from .Admin.doctors import DoctorsPage
 from .Admin.clients import ClientsPage
 
 from .Receptionist.dashboard import ReceptionistDashboardPage
-from .Receptionist.registration import RegistrationPage
+from .Receptionist.client_registration import RegistrationPage
+from .Receptionist.animal_registration import AnimalRegistrationPage
 from .Receptionist.scheduleVisitPage import ScheduleVisitPage
+from .Receptionist.doctor_registration import DoctorRegistrationPage
 
 from .Doctor.dashboard import DashboardPage
 from .Doctor.visit import VisitsWindow
@@ -59,7 +61,9 @@ class MainWindow(QMainWindow):
         elif self.user_role == "receptionist":
             pages = [
                 ("Dashboard", ReceptionistDashboardPage),
-                ("Rejestracja", RegistrationPage),
+                ("Rejestracja klienta", RegistrationPage),
+                ("Rejestracja zwierzaka", AnimalRegistrationPage),
+                ("Rejestracja lekarza", DoctorRegistrationPage),
                 ("Umawianie wizyt", ScheduleVisitPage),
             ]
         elif self.user_role == "doctor":

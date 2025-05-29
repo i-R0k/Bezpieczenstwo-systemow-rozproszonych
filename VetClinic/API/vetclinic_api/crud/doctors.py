@@ -11,18 +11,9 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 def get_password_hash(password: str) -> str:
     return pwd_context.hash(password)
 
-def create_doctor(db: Session, doc_in: DoctorCreate) -> Doctor:
-    """
-    Tworzy nowego lekarza:
-     - generuje losowe hasło,
-     - hashuje je,
-     - ustawia must_change_password=True,
-     - zapisuje backup_email,
-     - wysyła mail z tymczasowym hasłem.
-    """
+def create_doctor(db: Session, doc_in: DoctorCreate) -> tuple[str, Doctor]:
     raw_password = secrets.token_urlsafe(16)
     hashed       = get_password_hash(raw_password)
-
     doctor = Doctor(
         first_name           = doc_in.first_name,
         last_name            = doc_in.last_name,
@@ -37,9 +28,9 @@ def create_doctor(db: Session, doc_in: DoctorCreate) -> Doctor:
     db.commit()
     db.refresh(doctor)
 
-    # wyślij tymczasowe hasło
     EmailService.send_temporary_password(doctor.backup_email, raw_password)
-    return doctor
+    return raw_password, doctor
+
 
 def list_doctors(db: Session) -> list[Doctor]:
     return db.query(Doctor).all()

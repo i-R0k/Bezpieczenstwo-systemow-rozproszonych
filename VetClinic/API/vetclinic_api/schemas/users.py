@@ -12,7 +12,6 @@ from vetclinic_api.validators import (
 class UserBase(BaseModel):
     first_name: str
     last_name: str
-    email: EmailStr
 
     @field_validator("first_name")
     def validate_first_name(cls, value):
@@ -26,7 +25,8 @@ class UserBase(BaseModel):
 # Schemat dla klienta
 class ClientCreate(UserBase):
     password: str
-    role: str  # powinno być "klient"
+    role: str
+    email: EmailStr
     phone_number: str
     address: str
     postal_code: str
@@ -42,24 +42,20 @@ class ClientCreate(UserBase):
 
 # Schemat dla lekarza
 class DoctorCreate(UserBase):
-    password: str
-    role: str  # powinno być "lekarz"
     specialization: str
     permit_number: str
+    backup_email: EmailStr
+    email: Optional[EmailStr] = None
 
     @field_validator("permit_number")
     def check_permit_number(cls, value):
         return validate_permit_number(value)
-    
-    @field_validator("email")
-    def validate_doctor_email(cls, value, info):
-        role = info.data.get("role")
-        return validate_email(value, role=role)
 
 
 # Schemat dla konsultanta
 class ConsultantCreate(UserBase):
     password: Optional[str] = None
+    email: EmailStr
     role: str = "consultant"
     facility_id: int 
     backup_email: EmailStr

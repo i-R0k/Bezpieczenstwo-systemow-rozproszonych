@@ -16,7 +16,7 @@ class Animal(Base):
     breed = Column(String, nullable=True, comment="Rasa zwierzęcia, może być pusta w przypadku zwierząt mieszanych")
     gender = Column(String, nullable=True, comment="Płeć zwierzęcia, np. male, female")
     birth_date = Column(Date, nullable=True, comment="Data urodzenia zwierzęcia")
-    age = Column(Integer, nullable=True, comment="Wiek zwierzęcia (opcjonalnie, może być obliczany na podstawie birth_date)")
+    age = Column(Float, nullable=True, comment="Wiek zwierzęcia (opcjonalnie, może być obliczany na podstawie birth_date)")
     weight = Column(Float, nullable=True, comment="Waga zwierzęcia w kg")
     microchip_number = Column(String, nullable=True, unique=True, comment="Numer mikroczipa, jeśli został wszczepiony")
     notes = Column(Text, nullable=True, comment="Dodatkowe uwagi dotyczące zwierzęcia")
