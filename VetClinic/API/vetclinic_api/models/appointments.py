@@ -1,10 +1,15 @@
-from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey, Float
+from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey, Float, UniqueConstraint
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from vetclinic_api.core.database import Base
 
 class Appointment(Base):
     __tablename__ = "appointments"
+
+    __table_args__ = (
+        # Blokada: jeden lekarz nie może mieć dwóch wizyt w tej samej sekundzie
+        UniqueConstraint('doctor_id', 'visit_datetime', name='uq_doctor_visit_datetime'),
+    )
 
     id             = Column(Integer, primary_key=True, index=True)
     doctor_id      = Column(Integer, ForeignKey("doctors.id"), nullable=False)

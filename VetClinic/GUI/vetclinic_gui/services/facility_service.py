@@ -1,54 +1,71 @@
-from vetclinic_api.crud.facility_crud import (
-    get_facilities, get_facility,
-    create_facility, update_facility, delete_facility
-)
-from vetclinic_api.core.database import SessionLocal
-from vetclinic_api.schemas.facility import FacilityCreate, FacilityUpdate, FacilityRead
+import requests
+from types import SimpleNamespace
+from vetclinic_api.core.config import API_BASE_URL
 
 class FacilityService:
-    @staticmethod
-    def list():
-        db = SessionLocal()
-        try:
-            facilities = get_facilities(db)
-            # Możesz owinąć w FacilityRead, jeśli chcesz zawsze wyjściowy model
-            return [FacilityRead.model_validate(fac) for fac in facilities]
-        finally:
-            db.close()
+    """
+    Serwis HTTP CRUD dla zasobu placówek (facilities).
+    """
 
     @staticmethod
-    def get(fid: int):
-        db = SessionLocal()
+    def list() -> list[SimpleNamespace]:
+        """
+        Pobiera listę wszystkich placówek.
+        GET /facilities
+        """
+        url = f"{API_BASE_URL}/facilities"
         try:
-            fac = get_facility(db, fid)
-            return FacilityRead.model_validate(fac) if fac else None
-        finally:
-            db.close()
+            r = requests.get(url)
+            r.raise_for_status()
+            # oczekujemy listy JSON-ów, każdy zamieniamy na SimpleNamespace
+            return [SimpleNamespace(**fac) for fac in r.json()]
+        except requests.RequestException:
+            return []
 
     @staticmethod
-    def create(data: dict):
-        db = SessionLocal()
+    def get(facility_id: int) -> SimpleNamespace | None:
+        """
+        Pobiera jedną placówkę po ID.
+        GET /facilities/{facility_id}
+        """
+        url = f"{API_BASE_URL}/facilities/{facility_id}"
         try:
-            facility_in = FacilityCreate(**data)
-            fac = create_facility(db, facility_in)
-            return FacilityRead.model_validate(fac)
-        finally:
-            db.close()
+            r = requests.get(url)
+            r.raise_for_status()
+            return SimpleNamespace(**r.json())
+        except requests.RequestException:
+            return None
 
     @staticmethod
-    def update(fid: int, data: dict):
-        db = SessionLocal()
-        try:
-            facility_in = FacilityUpdate(**data)
-            fac = update_facility(db, fid, facility_in)
-            return FacilityRead.model_validate(fac) if fac else None
-        finally:
-            db.close()
+    def create(data: dict) -> SimpleNamespace:
+        """
+        Tworzy nową placówkę.
+        POST /facilities
+        """
+        url = f"{API_BASE_URL}/facilities"
+        r = requests.post(url, json=data)
+        r.raise_for_status()
+        # zwróci FacilityRead jako JSON
+        return SimpleNamespace(**r.json())
 
     @staticmethod
-    def delete(fid: int):
-        db = SessionLocal()
-        try:
-            return delete_facility(db, fid)
-        finally:
-            db.close()
+    def update(facility_id: int, payload: dict) -> SimpleNamespace:
+        """
+        Modyfikuje istniejącą placówkę.
+        PUT /facilities/{facility_id}
+        """
+        url = f"{API_BASE_URL}/facilities/{facility_id}"
+        r = requests.put(url, json=payload)
+        r.raise_for_status()
+        return SimpleNamespace(**r.json())
+
+    @staticmethod
+    def delete(facility_id: int) -> None:
+        """
+        Usuwa placówkę.
+        DELETE /facilities/{facility_id}
+        """
+        url = f"{API_BASE_URL}/facilities/{facility_id}"
+        r = requests.delete(url)
+        r.raise_for_status()
+        # nie zwracamy treści, samo wywołanie bez wyjątku = sukces

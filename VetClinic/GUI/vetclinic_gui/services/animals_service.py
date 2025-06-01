@@ -10,6 +10,15 @@ class AnimalService:
             return get_animals(db)
         finally:
             db.close()
+    
+    @staticmethod
+    def list_by_owner(owner_id: int):
+        """
+        Zwraca tylko te zwierzęta, których owner_id == podane owner_id.
+        """
+        # pobierz wszystkie i przepuść przez filtr
+        all_animals = AnimalService.list() or []
+        return [a for a in all_animals if getattr(a, "owner_id", None) == owner_id]
 
     @staticmethod
     def get(aid: int):
