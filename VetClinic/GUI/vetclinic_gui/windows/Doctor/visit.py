@@ -97,8 +97,11 @@ class VisitsWindow(QWidget):
         self.status_cb       = QComboBox(); self.status_cb.addItems(["zaplanowana", "odwołana", "zakończona"])
         self.priority_cb     = QComboBox(); self.priority_cb.addItems(["normalna", "pilna", "nagła"])
         self.weight_visit_sb = QDoubleSpinBox(); self.weight_visit_sb.setRange(0.1, 500); self.weight_visit_sb.setSuffix(" kg"); self.weight_visit_sb.setSingleStep(0.1); self.weight_visit_sb.setDecimals(2)
-        self.age_visit_sb    = QSpinBox(); self.age_visit_sb.setRange(0, 100)
-        self.gender_visit_cb = QComboBox(); self.gender_visit_cb.addItems(["samiec", "samica"])
+        self.age_visit_sb = QDoubleSpinBox()
+        self.age_visit_sb.setRange(0.0, 100.0)
+        self.age_visit_sb.setDecimals(1)       # np. jedno miejsce po przecinku
+        self.age_visit_sb.setSingleStep(0.1)
+        self.gender_visit_cb = QComboBox(); self.gender_visit_cb.addItems(["samiec", "samica", "nieznana"])
         self.reason_te       = QTextEdit(); self.reason_te.setFixedHeight(60)
         self.treatment_te    = QTextEdit(); self.treatment_te.setFixedHeight(100)
 
@@ -388,7 +391,7 @@ class VisitsWindow(QWidget):
         self.microchip_le.setText(animal.microchip_number or "")
         self.animal_notes.setPlainText(animal.notes or "")
 
-        self.age_visit_sb.setValue(animal.age or 0)
+        self.age_visit_sb.setValue(animal.age or 0.0)
         self.weight_visit_sb.setValue(animal.weight or 0.0)
 
         gi = self.gender_visit_cb.findText(animal.gender or "")
@@ -404,50 +407,55 @@ class VisitsWindow(QWidget):
         self._load_previous_visits()
 
     def _load_previous_visits(self):
-        # pobierz wszystkie wizyty z serwisu i odfiltruj po zwierzęciu i lekarzu
-        all_v = AppointmentService.list()
-        aid   = self.animal_cb.currentData()
-        visits = [v for v in all_v
-                  if v.animal_id == aid and v.doctor_id == self.doctor_id]
-
-        # wyczyść tabelę
+        # Pobierz wszystkie wizyty z serwisu i odfiltruj po zwierzęciu i lekarzu
+        all_visits = AppointmentService.list()
+        aid = self.animal_cb.currentData()
+        visits = [
+            v for v in all_visits
+            if v.animal_id == aid and v.doctor_id == self.doctor_id
+        ]
+    
+        # Wyczyść tabelę
         self.prev_table.setRowCount(0)
-
-        for v in visits:
-            r = self.prev_table.rowCount()
-            self.prev_table.insertRow(r)
-
-            # znajdź zwierzę po id
-            animal = next((a for a in self.animals if a.id == v.animal_id), None)
-            owner  = next((c for c in self.clients if c.id == v.owner_id), None)
-
-            # sformatuj pola
-            date_str      = v.visit_datetime  # zakładam, że to string ISO
-            animal_str    = animal.name if animal else ""
-            owner_str     = f"{owner.first_name} {owner.last_name}" if owner else ""
-            w = getattr(v, "weight", None)
-            weight_str    = f"{w:.1f}" if isinstance(w, (int, float)) else ""
-            reason_str    = v.reason or ""
-            treatment_str = getattr(v, "treatment", "") or ""
-
+    
+        for visit in visits:
+            row_index = self.prev_table.rowCount()
+            self.prev_table.insertRow(row_index)
+    
+            # Znajdź obiekty pomocnicze po ID
+            animal = next((a for a in self.animals if a.id == visit.animal_id), None)
+            owner = next((c for c in self.clients if c.id == visit.owner_id), None)
+    
+            # Sformatuj pola:
+            date_time_str = visit.visit_datetime  # zakładamy, że to string ISO
+            animal_name = animal.name if animal else ""
+            owner_name = f"{owner.first_name} {owner.last_name}" if owner else ""
+    
+            weight_value = getattr(visit, "weight", None)
+            weight_str = f"{weight_value:.1f}" if isinstance(weight_value, (int, float)) else ""
+    
+            reason_str = visit.reason or ""
+            treatment_str = getattr(visit, "treatment", "") or ""
+    
             values = [
-                v.id,
-                date_str,
-                animal_str,
-                owner_str,
+                visit.id,
+                date_time_str,
+                animal_name,
+                owner_name,
                 weight_str,
                 reason_str,
                 treatment_str
             ]
-
-            for c, val in enumerate(values):
+    
+            for col, val in enumerate(values):
                 item = QTableWidgetItem(str(val))
-                # kolumny ID i Waga wyrównaj do prawej
-                if c in (0, 4):
+                # Kolumny ID (0) i Waga (4) wyrównaj do prawej
+                if col in (0, 4):
                     item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
                 else:
-                    item.setTextAlignment(Qt.AlignLeft  | Qt.AlignVCenter)
-                self.prev_table.setItem(r, c, item)
+                    item.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+                self.prev_table.setItem(row_index, col, item)
+
 
     def _on_save_visit(self):
         # 1) zaktualizuj dane zwierzęcia

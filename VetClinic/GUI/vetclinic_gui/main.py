@@ -6,7 +6,7 @@ def main():
     app = QApplication(sys.argv)
 
     # 1) Wybór roli
-    roles = ["Administrator","Recepcjonista","Lekarza","Klient"]
+    roles = ["Administrator","Recepcjonista","Lekarz","Klient"]
     role_name, ok = QInputDialog.getItem(
         None,
         "Wybór grupy użytkownika",
@@ -18,7 +18,7 @@ def main():
     if not ok:
         QMessageBox.information(None, "Koniec", "Nie wybrano roli. Kończę.")
         sys.exit(0)
-    role_map = {"Doktor": "doctor", "Recepcjonista": "receptionist", "Administrator": "admin", "klient": "client"}
+    role_map = {"Lekarz": "doctor", "Recepcjonista": "receptionist", "Administrator": "admin", "klient": "client"}
     user_role = role_map[role_name]
 
     # 2) Jeżeli to doktor – poproś o ID
