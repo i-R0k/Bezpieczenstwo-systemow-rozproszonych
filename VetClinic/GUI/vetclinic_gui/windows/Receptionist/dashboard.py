@@ -1,15 +1,23 @@
 from PyQt5.QtWidgets import (
-    QWidget, QVBoxLayout, QFormLayout, QLineEdit, QLabel,
-    QPushButton, QMessageBox, QTabWidget, QTableWidget, QTableWidgetItem
+    QWidget, QVBoxLayout, QLabel, QTabWidget,
+    QTableWidget, QTableWidgetItem, QMessageBox, QHeaderView
 )
-from datetime import datetime, date
+from PyQt5.QtCore import Qt
+from datetime import date
 
-from vetclinic_gui.services.clients_service import ClientService
+from vetclinic_gui.services.clients_service    import ClientService
+from vetclinic_gui.services.animals_service    import AnimalService
+from vetclinic_gui.services.facility_service   import FacilityService
+from vetclinic_gui.services.doctors_service    import DoctorService
 from vetclinic_gui.services.appointments_service import AppointmentService
+
 
 class ReceptionistDashboardPage(QWidget):
     """
     Dashboard recepcjonisty - przegląd wizyt: przeszłe, dzisiejsze i przyszłe.
+    Pokazuje w tabeli (dla każdej kategorii) kolumny:
+      Data | Godzina | Lekarz | Właściciel | Zwierzę | Placówka | Uwagi
+    Estetyka: naprzemienne kolory wierszy i nagłówki przyciągające wzrok.
     """
     def __init__(self, receptionist_id=None):
         super().__init__()
@@ -20,35 +28,81 @@ class ReceptionistDashboardPage(QWidget):
     def _setup_ui(self):
         layout = QVBoxLayout(self)
         title = QLabel("Przegląd wizyt")
-        title.setStyleSheet("font-size:18px; font-weight:bold;")
+        title.setStyleSheet("font-size:20px; font-weight:bold; margin-bottom:12px;")
         layout.addWidget(title)
 
         self.tabs = QTabWidget()
-        # Tabele dla trzech kategorii wizyt
-        self.past_table = QTableWidget(0, 4)
-        self.today_table = QTableWidget(0, 4)
-        self.upcoming_table = QTableWidget(0, 4)
+        self.tabs.setStyleSheet("""
+            QTabBar::tab {
+                padding: 8px 16px;
+                font-size: 14px;
+            }
+            QTabBar::tab:selected {
+                background: #e0f0ff;
+                border-bottom: 2px solid #2196F3;
+            }
+        """)
+
+        # Tabele dla trzech kategorii wizyt; kolumny: Data, Godzina, Lekarz, Właściciel, Zwierzę, Placówka, Uwagi
+        self.past_table     = self._create_table()
+        self.today_table    = self._create_table()
+        self.upcoming_table = self._create_table()
+
+        headers = ["Data", "Godzina", "Lekarz", "Właściciel", "Zwierzę", "Placówka", "Uwagi"]
         for tbl in (self.past_table, self.today_table, self.upcoming_table):
-            tbl.setHorizontalHeaderLabels(["Data", "Godzina", "Gabinet", "Lekarz"])
+            tbl.setColumnCount(len(headers))
+            tbl.setHorizontalHeaderLabels(headers)
+            tbl.setAlternatingRowColors(True)
+            tbl.setStyleSheet("""
+                QTableWidget {
+                    background-color: #fafafa;
+                    alternate-background-color: #f0f0f0;
+                }
+                QHeaderView::section {
+                    background-color: #2196F3;
+                    color: white;
+                    padding: 4px;
+                    font-weight: bold;
+                    border: 1px solid #e0e0e0;
+                }
+            """)
+            tbl.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+            tbl.verticalHeader().setVisible(False)
+
         self.tabs.addTab(self.past_table, "Przeszłe")
         self.tabs.addTab(self.today_table, "Dzisiejsze")
         self.tabs.addTab(self.upcoming_table, "Przyszłe")
         layout.addWidget(self.tabs)
 
+    def _create_table(self) -> QTableWidget:
+        tbl = QTableWidget()
+        tbl.setRowCount(0)
+        tbl.setColumnCount(7)
+        return tbl
+
     def _load_visits(self):
-        all_visits = AppointmentService.list()
-        now = datetime.now()
+        try:
+            all_visits = AppointmentService.list()
+        except Exception as e:
+            QMessageBox.critical(self, "Błąd", f"Nie można pobrać wizyt: {e}")
+            return
+
         today_date = date.today()
-        # Czyścimy tabele
+
+        doctors     = {d.id: f"{d.first_name} {d.last_name}" for d in DoctorService.list() or []}
+        clients     = {c.id: f"{c.first_name} {c.last_name}" for c in ClientService.list() or []}
+        animals     = {a.id: a.name                              for a in AnimalService.list() or []}
+        facilities  = {f.id: f.name                              for f in FacilityService.list() or []}
+
         for tbl in (self.past_table, self.today_table, self.upcoming_table):
             tbl.setRowCount(0)
 
         for v in all_visits:
-            try:
-                dt = datetime.fromisoformat(v.visit_datetime)
-            except Exception:
+            dt = v.visit_datetime
+            if not dt:
                 continue
-            # Wybór tabeli według daty wizyty
+
+            # Wybór odpowiedniej tabeli
             if dt.date() < today_date:
                 tbl = self.past_table
             elif dt.date() == today_date:
@@ -58,16 +112,26 @@ class ReceptionistDashboardPage(QWidget):
 
             row = tbl.rowCount()
             tbl.insertRow(row)
-            date_str = dt.date().isoformat()
-            time_str = dt.strftime("%H:%M")
 
-            # Pobranie nazwy gabinetu
-            room = next((r for r in AppointmentService._rooms if getattr(r, 'id', None) == v.room_id), None)
-            room_name = getattr(room, 'name', '') if room else ''
-            # Pobranie danych lekarza
-            doctor = next((d for d in AppointmentService._doctors if getattr(d, 'id', None) == v.doctor_id), None)
-            doctor_name = f"{doctor.first_name} {doctor.last_name}" if doctor else ''
+            # Przygotuj wartości:
+            date_str     = dt.date().isoformat()       # np. "2025-06-10"
+            time_str     = dt.strftime("%H:%M")        # np. "09:15"
+            doctor_name  = doctors.get(v.doctor_id, "")
+            owner_name   = clients.get(v.owner_id, "")
+            animal_name  = animals.get(v.animal_id, "")
+            facility_name= facilities.get(v.facility_id, "")
+            notes        = v.notes or ""
 
-            values = [date_str, time_str, room_name, doctor_name]
+            values = [
+                date_str,
+                time_str,
+                doctor_name,
+                owner_name,
+                animal_name,
+                facility_name,
+                notes
+            ]
             for col, val in enumerate(values):
-                tbl.setItem(row, col, QTableWidgetItem(val))
+                item = QTableWidgetItem(val)
+                item.setFlags(item.flags() ^ Qt.ItemIsEditable)
+                tbl.setItem(row, col, item)

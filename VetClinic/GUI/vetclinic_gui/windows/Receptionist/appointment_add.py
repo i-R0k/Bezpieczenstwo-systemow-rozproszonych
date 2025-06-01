@@ -276,6 +276,40 @@ class AppointmentBookingPage(QWidget):
             self.time_cb.addItem("— brak wolnych terminów —", None)
 
 
+    def _reset_form(self):
+        """
+        Przywraca formularz do stanu początkowego:
+        - czyści pola klienta, lekarza, notatek,
+        - resetuje comboboxy i QDateEdit,
+        - wyłącza comboboxy, które wymagają wyboru klienta/lekarza/placówki.
+        """
+        # Klient
+        self.client_le.clear()
+        self._selected_client_id = None
+        self._client_model.setStringList([])
+        self._client_completer.setCompletionPrefix("")
+        # Zwierzę
+        self.animal_cb.clear()
+        self.animal_cb.setEnabled(False)
+        # Placówka – ustaw na „– wybierz –”
+        self.facility_cb.setCurrentIndex(0)
+        self._selected_facility_id = None
+        # Priorytet – zostawiamy na „normalna”
+        self.priority_cb.setCurrentIndex(0)
+        # Lekarz
+        self.doctor_le.clear()
+        self._selected_doctor_id = None
+        self._doctor_model.setStringList([])
+        self._doctor_completer.setCompletionPrefix("")
+        self.doctor_le.setEnabled(False)
+        # Data
+        self.date_edit.setDate(QDate.currentDate())
+        # Godzina
+        self.time_cb.clear()
+        self.time_cb.setEnabled(False)
+        # Uwagi
+        self.notes_te.clear()
+
     def _on_save(self):
         missing = []
         if not self._selected_client_id:
@@ -313,7 +347,7 @@ class AppointmentBookingPage(QWidget):
         try:
             AppointmentService.create(payload)
             QMessageBox.information(self, "Sukces", "Wizyta została umówiona.")
-            # Po zapisie odśwież wolne sloty (na wypadek, gdyby użytkownik chciał umówić kolejną wizytę)
-            self._update_time_slots(self.date_edit.date())
+            # Po poprawnym zapisie czyścimy cały formularz:
+            self._reset_form()
         except Exception as e:
             QMessageBox.critical(self, "Błąd zapisu", str(e))
