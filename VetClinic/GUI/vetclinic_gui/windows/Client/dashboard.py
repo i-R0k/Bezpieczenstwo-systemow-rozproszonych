@@ -28,9 +28,7 @@ class DashboardWindow(QMainWindow):
         main_layout = QHBoxLayout(central)
         main_layout.setContentsMargins(0, 0, 0, 0)
 
-        sidebar = self._create_sidebar()
-        main_layout.addWidget(sidebar)
-
+        # Usunięty pasek nawigacji – zostawiamy tylko zawartość
         content = QWidget()
         content_layout = QVBoxLayout(content)
         content_layout.setContentsMargins(20, 20, 20, 20)
@@ -50,8 +48,8 @@ class DashboardWindow(QMainWindow):
             w.setMinimumWidth(0)
 
         top_panels.addWidget(med_group, 1)
-        top_panels.addWidget(vac_group,  1) 
-        content_layout.addLayout(top_panels, 1) 
+        top_panels.addWidget(vac_group,  1)
+        content_layout.addLayout(top_panels, 1)
 
         bottom_panels = QHBoxLayout()
         bottom_panels.setSpacing(15)
@@ -63,42 +61,11 @@ class DashboardWindow(QMainWindow):
             w.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
             w.setMinimumWidth(0)
 
-        bottom_panels.addWidget(wt, 1)  
-        bottom_panels.addWidget(cv, 1)  
+        bottom_panels.addWidget(wt, 1)
+        bottom_panels.addWidget(cv, 1)
         content_layout.addLayout(bottom_panels, 1)
 
         main_layout.addWidget(content)
-   
-    def _create_sidebar(self) -> QFrame:
-        frame = QFrame()
-        frame.setFixedWidth(260)
-        frame.setStyleSheet("background-color:#2f3b52;")
-        layout = QVBoxLayout(frame)
-        layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(15)
-
-        logo = QLabel("<span style='font-size:24px; font-weight:bold; color:#ffffff;'>Vet<span style='color:#38a2db;'>Clinic</span></span>")
-        logo.setAlignment(Qt.AlignCenter)
-        layout.addWidget(logo)
-        for name in ["Główna", "Aktualności", "Dashboard", "Usługi i cennik", "Lekarze", "Kontakt", "Ustawienia konta", "Wyloguj"]:
-            btn = QPushButton(name)
-            btn.setCursor(Qt.PointingHandCursor)
-            btn.setFlat(True)
-            btn.setStyleSheet(
-                "QPushButton { text-align:left; padding:8px; color:#ffffff; font-size:16px; }"
-                "QPushButton:hover { background-color: #2e3a50; }"
-            )
-            if name == "Dashboard":
-                btn.setStyleSheet(
-                    "QPushButton { text-align:left; padding:8px; background-color:#38a2db; color:#fff; font-size:16px; border-radius:5px; }"
-                    "QPushButton:hover { background-color:#2e97c9; }"
-                )
-            layout.addWidget(btn)
-        layout.addStretch()
-        user_lbl = QLabel("<span style='color:#ffffff;'>Cześć, <b>Anna</b></span>")
-        user_lbl.setAlignment(Qt.AlignCenter)
-        layout.addWidget(user_lbl)
-        return frame
 
     def _create_top_bar(self):
         layout = QHBoxLayout()
@@ -113,7 +80,6 @@ class DashboardWindow(QMainWindow):
         return layout
 
     def _create_medical_card(self) -> QGroupBox:
-        # ——— Kontener z białym tłem i ramką jak w Vaccinations ———
         group = QGroupBox()
         group.setStyleSheet("""
             QGroupBox {
@@ -133,7 +99,6 @@ class DashboardWindow(QMainWindow):
             }
         """)
 
-        # ——— Layout i nagłówek ———
         layout = QVBoxLayout(group)
         header = QHBoxLayout()
         title = QLabel("Karta medyczna")
@@ -149,22 +114,16 @@ class DashboardWindow(QMainWindow):
         header.addWidget(menu_btn)
         layout.addLayout(header)
 
-        # ——— Tabela ———
         table = QTableWidget(4, 4)
         table.setHorizontalHeaderLabels(["Rozpoznanie", "Leczenie", "Data kontroli", ""])
-
-        # wyłącz edycję, zaznaczanie, focus, włącz zawijanie
         table.setEditTriggers(QTableWidget.NoEditTriggers)
         table.setSelectionMode(QTableWidget.NoSelection)
         table.setFocusPolicy(Qt.NoFocus)
         table.setWordWrap(True)
-
-        # usuń obramowanie tabeli, grid i numerację wierszy
         table.setFrameShape(QFrame.NoFrame)
         table.setShowGrid(False)
         table.verticalHeader().setVisible(False)
 
-        # rozkład kolumn: auto, stretch, auto, fixed
         table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
         table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
         table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
@@ -172,7 +131,6 @@ class DashboardWindow(QMainWindow):
         table.setColumnWidth(3, 20)
         table.verticalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
 
-        # style tabeli (nagłówki i wiersze) jak w Vaccinations
         table.setStyleSheet("""
             QTableWidget {
                 border: none;
@@ -186,38 +144,32 @@ class DashboardWindow(QMainWindow):
                 color: #111827;
                 border-bottom: 2px solid #e5e7eb;
             }
-            QTableView::item {
+            QTableWidget::item {
                 border-bottom: 1px solid #e5e7eb;
                 padding: 10px 6px;
             }
         """)
 
-        # ——— 5) Delikatny, 8px scrollbar ———
         vsb = table.verticalScrollBar()
         vsb.setStyleSheet("""
-            /* Główny tor (track) */
             QScrollBar:vertical {
                 background: transparent;
                 width: 8px;
                 margin: 0px;
             }
-            /* Rączka (handle) */
             QScrollBar::handle:vertical {
                 background: rgba(0, 0, 0, 0.15);
                 border-radius: 4px;
                 min-height: 30px;
             }
-            /* Usuń przyciski góra/dół */
             QScrollBar::sub-line, QScrollBar::add-line {
                 height: 0px;
             }
-            /* Reszta (puste miejsca) */
             QScrollBar::add-page, QScrollBar::sub-page {
                 background: transparent;
             }
         """)
 
-        # ——— Wypełnienie danymi ———
         data = [
             ("Zapalenie płuc",     "Augmentin 250mg, 2× dziennie…",    "30.11.2020"),
             ("Awitaminoza",        "Witamina D 1000 IU raz w tygodniu", "28.11.2020"),
@@ -276,23 +228,17 @@ class DashboardWindow(QMainWindow):
         header.addWidget(menu_btn)
         layout.addLayout(header)
 
-        # ——— 3) Tabela bez gridu, z liniami oddzielającymi wiersze ———
         table = QTableWidget(6, 5)
         table.setHorizontalHeaderLabels([
             "Choroba", "Status", "Szczepionka", "Pierwotne", "Powtórka"
         ])
-
-        # wyłącz edycję, zaznaczanie, focus, włącz zawijanie
         table.setEditTriggers(QTableWidget.NoEditTriggers)
         table.setSelectionMode(QTableWidget.NoSelection)
         table.setFocusPolicy(Qt.NoFocus)
         table.setWordWrap(True)
-
-        # usuń domyślną siatkę i numerację wierszy
         table.setShowGrid(False)
         table.verticalHeader().setVisible(False)
 
-        # rozciągnięcie kolumn analogicznie do karty medycznej
         table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
         table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
         table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
@@ -300,14 +246,11 @@ class DashboardWindow(QMainWindow):
         table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeToContents)
         table.verticalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
 
-        # ——— 4) Style tabeli ———
         table.setStyleSheet("""
-            /* cała tabela bez własnej ramki */
             QTableWidget {
                 border: none;
                 background-color: transparent;
             }
-            /* nagłówki z białym tłem i dolnym border */
             QHeaderView::section {
                 background-color: #ffffff;
                 border: none;
@@ -316,39 +259,32 @@ class DashboardWindow(QMainWindow):
                 color: #111827;
                 border-bottom: 2px solid #e5e7eb;
             }
-            /* wiersze – tylko dolna linia i padding */
-            QTableView::item {
+            QTableWidget::item {
                 border-bottom: 1px solid #e5e7eb;
                 padding: 10px 6px;
             }
         """)
 
-        # ——— 5) Delikatny, 8px scrollbar ———
         vsb = table.verticalScrollBar()
         vsb.setStyleSheet("""
-            /* Główny tor (track) */
             QScrollBar:vertical {
                 background: transparent;
                 width: 8px;
                 margin: 0px;
             }
-            /* Rączka (handle) */
             QScrollBar::handle:vertical {
                 background: rgba(0, 0, 0, 0.15);
                 border-radius: 4px;
                 min-height: 30px;
             }
-            /* Usuń przyciski góra/dół */
             QScrollBar::sub-line, QScrollBar::add-line {
                 height: 0px;
             }
-            /* Reszta (puste miejsca) */
             QScrollBar::add-page, QScrollBar::sub-page {
                 background: transparent;
             }
         """)
 
-        # ——— 5) Dane przykładowe ———
         vac_data = [
             ("Wścieklizna",       "Zrobione",     "Nobivac DHP",   "21.03.2020", "07.07.2020"),
             ("Zapalenie wątroby", "Do zrobienia", "Nobivac DHPPi","07.07.2020", "25.11.2020"),
@@ -387,7 +323,6 @@ class DashboardWindow(QMainWindow):
         """
 
     def _create_weight_chart(self) -> QGroupBox:
-        # ——— Kontener i nagłówek jak poprzednio ———
         group = QGroupBox("Waga zwierzaka")
         group.setStyleSheet(self._groupbox_css())
         layout = QVBoxLayout(group)
@@ -406,20 +341,19 @@ class DashboardWindow(QMainWindow):
         header.addWidget(menu_btn)
         layout.addLayout(header)
 
-        # ——— 1) Dane: waga + odpowiadające im dni pierwszego każdego miesiąca ———
+        # 1) Dane: waga + odpowiadające im dni pierwszego każdego miesiąca
         weights = [2000, 2500, 2300, 2400, 2600, 2800, 3000, 3200, 3100, 3000, 2900, 2800]
         dates   = [QDate(2025, m, 1) for m in range(1, 13)]
 
-        # ——— 2) Zakres Y ———
+        # 2) Zakres Y
         mn, mx = min(weights), max(weights)
         dy = (mx - mn) * 0.1
         y_min, y_max = mn - dy, mx + dy
 
-        # ——— 3) Rzut na timestamp i Catmull–Rom densyfikacja ———
+        # 3) Rzut na timestamp i Catmull–Rom densyfikacja
         raw_pts = [(QDateTime(d).toMSecsSinceEpoch(), w) for d, w in zip(dates, weights)]
         def catmull_rom(pts, samples=20):
             def CR(p0,p1,p2,p3,t):
-                # standardowa formuła Catmull–Rom
                 a = 2*p1[1]
                 b = -p0[1] + p2[1]
                 c = 2*p0[1] - 5*p1[1] + 4*p2[1] - p3[1]
@@ -446,7 +380,7 @@ class DashboardWindow(QMainWindow):
 
         dense_pts = catmull_rom(raw_pts, samples=20)
 
-        # ——— 4) Tworzymy gęstą linię i bazę(y=0) ———
+        # 4) Tworzymy gęstą linię i bazę(y=0)
         top = QLineSeries()
         for x, y in dense_pts:
             top.append(x, y)
@@ -458,7 +392,7 @@ class DashboardWindow(QMainWindow):
         for x, _ in dense_pts:
             base.append(x, 0)
 
-        # ——— 5) Obszar z gradientowym wypełnieniem ———
+        # 5) Obszar z gradientowym wypełnieniem
         area = QAreaSeries(top, base)
         grad = QLinearGradient(0, 0, 0, 1)
         grad.setCoordinateMode(QGradient.ObjectBoundingMode)
@@ -467,7 +401,7 @@ class DashboardWindow(QMainWindow):
         area.setBrush(QBrush(grad))
         area.setPen(QPen(Qt.NoPen))
 
-        # ——— 6) Scatter oryginalnych punktów ———
+        # 6) Scatter oryginalnych punktów
         scatter = QScatterSeries()
         scatter.setMarkerSize(8)
         scatter.setColor(QColor("#38A2DB"))
@@ -481,7 +415,7 @@ class DashboardWindow(QMainWindow):
                 QToolTip.showText(QCursor.pos(), f"{dt}: {int(pt.y())} g")
         scatter.hovered.connect(show_tt)
 
-        # ——— 7) Budujemy QChart ———
+        # 7) Budujemy QChart
         chart = QChart()
         chart.addSeries(area)
         chart.addSeries(top)
@@ -489,7 +423,7 @@ class DashboardWindow(QMainWindow):
         chart.setBackgroundVisible(False)
         chart.legend().hide()
 
-        # ——— 8) Oś X datowa ———
+        # 8) Oś X datowa
         axisX = QDateTimeAxis()
         axisX.setFormat("MMM")
         axisX.setTitleText("Miesiąc")
@@ -502,7 +436,7 @@ class DashboardWindow(QMainWindow):
         for s in (area, top, scatter):
             s.attachAxis(axisX)
 
-        # ——— 9) Oś Y ———
+        # 9) Oś Y
         axisY = QValueAxis()
         axisY.setRange(0, y_max)
         axisY.setLabelFormat("%d")
@@ -511,7 +445,7 @@ class DashboardWindow(QMainWindow):
         for s in (area, top, scatter):
             s.attachAxis(axisY)
 
-        # ——— 10) View i porządkowanie GC ———
+        # 10) View i porządkowanie GC
         view = QChartView(chart)
         view.setRenderHint(QPainter.Antialiasing)
         view.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
@@ -520,7 +454,7 @@ class DashboardWindow(QMainWindow):
 
         group._chart   = chart
         group._top     = top
-        group._base    = base 
+        group._base    = base
         group._area    = area
         group._scatter = scatter
         group._axisX   = axisX
@@ -530,7 +464,6 @@ class DashboardWindow(QMainWindow):
         return group
 
     def _create_clinic_visits(self) -> QGroupBox:
-        # ——— 1) Kontener z ramką i białym tłem ———
         group = QGroupBox()
         group.setStyleSheet("""
             QGroupBox {
@@ -541,7 +474,6 @@ class DashboardWindow(QMainWindow):
             }
         """)
 
-        # ——— 2) Nagłówek sekcji ———
         layout = QVBoxLayout(group)
         header = QHBoxLayout()
         title = QLabel("Wizyty kliniczne")
@@ -557,7 +489,6 @@ class DashboardWindow(QMainWindow):
         header.addWidget(menu_btn)
         layout.addLayout(header)
 
-        # ——— 3) Kalendarz ———
         cal = QCalendarWidget()
         cal.setFirstDayOfWeek(Qt.Monday)
         cal.setVerticalHeaderFormat(QCalendarWidget.NoVerticalHeader)
@@ -565,19 +496,16 @@ class DashboardWindow(QMainWindow):
         cal.setNavigationBarVisible(True)
         cal.setGridVisible(False)
         cal.setStyleSheet("""
-            /* cała powierzchnia kalendarza */
             QCalendarWidget {
                 background-color: transparent;
                 border: none;
             }
-            /* nagłówek miesiąca + przyciski */
             QCalendarWidget QToolButton {
                 margin: 4px;
                 color: #111827;
                 font-size: 14px;
                 font-weight: bold;
             }
-            /* tytuł (miesiąc + rok) */
             QCalendarWidget QSpinBox {
                 width: 100px;
                 font-size: 14px;
@@ -586,30 +514,25 @@ class DashboardWindow(QMainWindow):
                 background: transparent;
                 border: none;
             }
-            /* ukryj przyciski spinboxa */
             QCalendarWidget QSpinBox::up-button,
             QCalendarWidget QSpinBox::down-button {
                 width: 0; height: 0;
             }
-            /* widok dni */
             QCalendarWidget QAbstractItemView {
                 selection-background-color: #38a2db;
                 selection-color: white;
                 outline: none;
                 font-size: 12px;
             }
-            /* pojedyncze dni */
             QCalendarWidget QAbstractItemView::item {
                 border-radius: 4px;
                 height: 28px;
                 width: 28px;
                 margin: 2px;
             }
-            /* hover nad dniem */
             QCalendarWidget QAbstractItemView::item:hover {
                 background: rgba(56,162,219,0.1);
             }
-            /* zaznaczony dzień */
             QCalendarWidget QAbstractItemView::item:selected {
                 background: #38a2db;
                 color: white;
@@ -617,19 +540,17 @@ class DashboardWindow(QMainWindow):
         """)
         layout.addWidget(cal)
 
-        # ——— 4) Informacja tekstowa ———
         date_lbl = QLabel("18.11.2020, 16:30")
         date_lbl.setStyleSheet(
-            "color: #38a2db;"           # akcentowy niebieski
+            "color: #38a2db;"
             "font-weight: bold;"
             "font-size: 14px;"
             "padding-left: 8px;"
         )
-        # Opis wizyty w lekkim odcieniu szarości
         desc_lbl = QLabel("Kontrola i szczepienie, Dr. Petrikov V.V., pok.206")
         desc_lbl.setWordWrap(True)
         desc_lbl.setStyleSheet(
-            "color: #4b5563;"           # ciemniejsza szarość
+            "color: #4b5563;"
             "font-size: 13px;"
             "padding: 2px 8px;"
         )

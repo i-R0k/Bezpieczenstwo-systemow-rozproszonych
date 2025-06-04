@@ -29,11 +29,13 @@ class MainWindow(QMainWindow):
         user_role: str,
         doctor_id: int = None,
         receptionist_id: int = None,
+        client_id: int = None,
     ):
         super().__init__()
         self.user_role = user_role
         self.doctor_id = doctor_id
         self.receptionist_id = receptionist_id
+        client_id = client_id
         self.pages_map = {}
         self.setWindowTitle("VetClinic")
         self.setMinimumSize(1080, 720)
