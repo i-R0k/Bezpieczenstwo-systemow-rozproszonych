@@ -18,7 +18,7 @@ def main():
     if not ok:
         QMessageBox.information(None, "Koniec", "Nie wybrano roli. Kończę.")
         sys.exit(0)
-    role_map = {"Lekarz": "doctor", "Recepcjonista": "receptionist", "Administrator": "admin", "klient": "client"}
+    role_map = {"Lekarz": "doctor", "Recepcjonista": "receptionist", "Administrator": "admin", "Klient": "client"}
     user_role = role_map[role_name]
 
     # 2) Jeżeli to doktor – poproś o ID
