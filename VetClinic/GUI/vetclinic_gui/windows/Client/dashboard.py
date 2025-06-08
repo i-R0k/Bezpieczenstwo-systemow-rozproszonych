@@ -241,7 +241,6 @@ class DashboardWindow(QMainWindow):
         if pts:
             self._update_weight_chart(pts)
 
-
     def _create_weight_chart(self) -> QGroupBox:
         group = QGroupBox("Waga zwierzaka")
         group.setStyleSheet(self._groupbox_css())
@@ -299,7 +298,6 @@ class DashboardWindow(QMainWindow):
         group._view    = view
 
         return group
-
 
     def _create_clinic_visits(self) -> QGroupBox:
         group = QGroupBox("Wizyty kliniczne")
