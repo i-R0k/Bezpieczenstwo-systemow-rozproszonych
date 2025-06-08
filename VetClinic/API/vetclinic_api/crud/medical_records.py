@@ -1,3 +1,4 @@
+from typing import List
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 
@@ -5,6 +6,17 @@ from vetclinic_api.crud.appointments_crud import get_appointment
 from vetclinic_api.crud.animal_crud import get_animal
 from vetclinic_api.models.medical_records import MedicalRecord
 from vetclinic_api.schemas.medical_records import MedicalRecordCreate, MedicalRecordUpdate
+
+
+def list_medical_records(db: Session, skip: int = 0, limit: int = 100) -> List[MedicalRecord]:
+    return db.query(MedicalRecord).offset(skip).limit(limit).all()
+
+def list_medical_records_by_appointment(db: Session, appointment_id: int) -> List[MedicalRecord]:
+    return (
+        db.query(MedicalRecord)
+          .filter(MedicalRecord.appointment_id == appointment_id)
+          .all()
+    )
 
 def get_medical_record(db: Session, record_id: int) -> MedicalRecord:
     rec = db.query(MedicalRecord).filter(MedicalRecord.id == record_id).first()

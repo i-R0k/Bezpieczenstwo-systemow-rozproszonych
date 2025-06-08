@@ -35,7 +35,7 @@ class MainWindow(QMainWindow):
         self.user_role = user_role
         self.doctor_id = doctor_id
         self.receptionist_id = receptionist_id
-        client_id = client_id
+        self.client_id = client_id
         self.pages_map = {}
         self.setWindowTitle("VetClinic")
         self.setMinimumSize(1080, 720)
@@ -95,6 +95,8 @@ class MainWindow(QMainWindow):
                 page = PageClass(self.doctor_id)
             elif PageClass in (ReceptionistDashboardPage, RegistrationPage):
                 page = PageClass(self.receptionist_id)
+            elif PageClass is DashboardWindow:
+                page = PageClass(self.client_id)
             else:
                 page = PageClass()
 

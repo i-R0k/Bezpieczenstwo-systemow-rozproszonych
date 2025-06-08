@@ -3,7 +3,8 @@ from vetclinic_api.crud.appointments_crud import (
     get_appointments, get_appointment,
     create_appointment as crud_create_appointment,
     update_appointment as crud_update_appointment,
-    delete_appointment as crud_delete_appointment
+    delete_appointment as crud_delete_appointment,
+    get_appointments_by_owner as get_appointments_by_owner
 )
 from vetclinic_api.schemas.appointment import AppointmentCreate, AppointmentUpdate
 from vetclinic_api.models.appointments import Appointment as AppointmentModel
@@ -58,6 +59,17 @@ class AppointmentService:
             return crud_delete_appointment(db, appointment_id)
         finally:
             db.close()
+    
+    @staticmethod
+    def list_by_owner(owner_id: int):
+        """
+        Zwraca listę wszystkich wizyt (Appointment) dla danego klienta (owner_id).
+        """
+        db = SessionLocal()
+        try:
+            return get_appointments_by_owner(db, owner_id)
+        finally:
+            db.close()
 
     @staticmethod
     def get_free_slots(doctor_id: int, date_str: str) -> List[str]:
@@ -109,3 +121,4 @@ class AppointmentService:
             return free_slots
         finally:
             db.close()
+            

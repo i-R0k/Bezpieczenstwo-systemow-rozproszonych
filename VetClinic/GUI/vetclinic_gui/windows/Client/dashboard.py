@@ -3,305 +3,101 @@ import sys
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget,
     QHBoxLayout, QVBoxLayout, QGroupBox,
-    QLabel, QPushButton, QLineEdit, QFrame,
+    QLabel, QPushButton, QFrame, QComboBox,
     QTableWidget, QTableWidgetItem,
     QCalendarWidget, QToolButton, QHeaderView,
-    QSizePolicy, QSplitter, QToolTip
+    QSizePolicy, QToolTip
 )
 from PyQt5.QtCore import Qt, QDate, QDateTime
-from PyQt5.QtGui import QFont, QPainter, QBrush, QColor, QCursor, QPen, QLinearGradient, QGradient
+from PyQt5.QtGui import (
+    QFont, QBrush, QColor, QCursor, QPen,
+    QLinearGradient, QGradient, QTextCharFormat, QPainter
+)
 from PyQt5.QtChart import (
     QChart, QChartView,
-    QLineSeries, QSplineSeries, QAreaSeries,
-    QScatterSeries, QCategoryAxis, QValueAxis, QDateTimeAxis
+    QLineSeries, QAreaSeries, QScatterSeries,
+    QDateTimeAxis, QValueAxis
 )
 
+from vetclinic_gui.services.medical_records_service import MedicalRecordService
+from vetclinic_gui.services.appointments_service    import AppointmentService
+from vetclinic_gui.services.animals_service         import AnimalService
+
+
 class DashboardWindow(QMainWindow):
-    def __init__(self):
+    def __init__(self, client_id: int):
         super().__init__()
-        self.setWindowTitle("VetClinic Dashboard")
+        self.client_id = client_id
+
+        # Pobierz wszystkie zwierzęta klienta
+        self.animals = AnimalService.list_by_owner(client_id) or []  # :contentReference[oaicite:4]{index=4}
+        self.animal_id = self.animals[0].id if self.animals else None
+
+        # Do śledzenia podświetlonych dni w kalendarzu
+        self.highlighted_dates = []
+        # Bieżące wizyty dla wybranego zwierzaka
+        self.current_appointments = []
+
+        self.setWindowTitle("VetClinic – Dashboard klienta")
         self.setMinimumSize(1080, 720)
         self.showMaximized()
 
+        self._setup_ui()
+        self.refresh_data()
+
+    def _setup_ui(self):
         central = QWidget()
         self.setCentralWidget(central)
         main_layout = QHBoxLayout(central)
         main_layout.setContentsMargins(0, 0, 0, 0)
 
-        # Usunięty pasek nawigacji – zostawiamy tylko zawartość
         content = QWidget()
         content_layout = QVBoxLayout(content)
         content_layout.setContentsMargins(20, 20, 20, 20)
         content_layout.setSpacing(15)
 
-        top_bar = self._create_top_bar()
-        content_layout.addLayout(top_bar)
+        # Pasek akcji + wybór zwierzaka
+        content_layout.addLayout(self._create_top_bar())
 
-        top_panels = QHBoxLayout()
-        top_panels.setSpacing(15)
+        # Karta medyczna
+        content_layout.addWidget(self._create_medical_card(), 1)
 
-        med_group = self._create_medical_card()
-        vac_group = self._create_vaccinations()
-
-        for w in (med_group, vac_group):
-            w.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-            w.setMinimumWidth(0)
-
-        top_panels.addWidget(med_group, 1)
-        top_panels.addWidget(vac_group,  1)
-        content_layout.addLayout(top_panels, 1)
-
-        bottom_panels = QHBoxLayout()
-        bottom_panels.setSpacing(15)
-
-        wt = self._create_weight_chart()
-        cv = self._create_clinic_visits()
-
-        for w in (wt, cv):
-            w.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
-            w.setMinimumWidth(0)
-
-        bottom_panels.addWidget(wt, 1)
-        bottom_panels.addWidget(cv, 1)
-        content_layout.addLayout(bottom_panels, 1)
+        # Dolne panele: wykres wagi + kalendarz wizyt
+        bottom = QHBoxLayout()
+        bottom.setSpacing(15)
+        bottom.addWidget(self._create_weight_chart(), 1)
+        bottom.addWidget(self._create_clinic_visits(), 1)
+        content_layout.addLayout(bottom, 1)
 
         main_layout.addWidget(content)
 
     def _create_top_bar(self):
         layout = QHBoxLayout()
+
+        # ComboBox ze zwierzakami
+        self.combo_animal = QComboBox()
+        for animal in self.animals:
+            self.combo_animal.addItem(animal.name, animal.id)
+        self.combo_animal.currentIndexChanged.connect(self.on_animal_changed)
+        layout.addWidget(self.combo_animal)
+
         layout.addStretch()
-        appt = QPushButton("Umów wizytę")
-        appt.setCursor(Qt.PointingHandCursor)
-        appt.setStyleSheet(
-            "QPushButton { padding:8px 16px; background-color:#38a2db; color:#fff; border:none; border-radius:15px; }"
+
+        appt_btn = QPushButton("Umów wizytę")
+        appt_btn.setCursor(Qt.PointingHandCursor)
+        appt_btn.setStyleSheet(
+            "QPushButton { padding:8px 16px; background-color:#38a2db; color:#fff; "
+            "border:none; border-radius:15px; }"
             "QPushButton:hover { background-color:#2e97c9; }"
         )
-        layout.addWidget(appt)
+        layout.addWidget(appt_btn)
+
         return layout
 
-    def _create_medical_card(self) -> QGroupBox:
-        group = QGroupBox()
-        group.setStyleSheet("""
-            QGroupBox {
-                background-color: #ffffff;
-                border: 1px solid #e5e7eb;
-                border-radius: 8px;
-                margin-top: 16px;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                subcontrol-position: top left;
-                padding: 0 12px;
-                font-size: 18px;
-                font-weight: bold;
-                color: #111827;
-                background-color: #ffffff;
-            }
-        """)
-
-        layout = QVBoxLayout(group)
-        header = QHBoxLayout()
-        title = QLabel("Karta medyczna")
-        title.setFont(QFont('Arial', 12, QFont.Bold))
-        header.addWidget(title)
-        header.addStretch()
-        menu_btn = QToolButton()
-        menu_btn.setText("\u22EE")
-        menu_btn.setStyleSheet(
-            "QToolButton { border:none; font-size:16px; color:#6b7280; }"
-            "QToolButton:hover { color:#111827; }"
-        )
-        header.addWidget(menu_btn)
-        layout.addLayout(header)
-
-        table = QTableWidget(4, 4)
-        table.setHorizontalHeaderLabels(["Rozpoznanie", "Leczenie", "Data kontroli", ""])
-        table.setEditTriggers(QTableWidget.NoEditTriggers)
-        table.setSelectionMode(QTableWidget.NoSelection)
-        table.setFocusPolicy(Qt.NoFocus)
-        table.setWordWrap(True)
-        table.setFrameShape(QFrame.NoFrame)
-        table.setShowGrid(False)
-        table.verticalHeader().setVisible(False)
-
-        table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
-        table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
-        table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
-        table.horizontalHeader().setSectionResizeMode(3, QHeaderView.Fixed)
-        table.setColumnWidth(3, 20)
-        table.verticalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
-
-        table.setStyleSheet("""
-            QTableWidget {
-                border: none;
-                background-color: transparent;
-            }
-            QHeaderView::section {
-                background-color: #ffffff;
-                border: none;
-                padding: 8px;
-                font-weight: 600;
-                color: #111827;
-                border-bottom: 2px solid #e5e7eb;
-            }
-            QTableWidget::item {
-                border-bottom: 1px solid #e5e7eb;
-                padding: 10px 6px;
-            }
-        """)
-
-        vsb = table.verticalScrollBar()
-        vsb.setStyleSheet("""
-            QScrollBar:vertical {
-                background: transparent;
-                width: 8px;
-                margin: 0px;
-            }
-            QScrollBar::handle:vertical {
-                background: rgba(0, 0, 0, 0.15);
-                border-radius: 4px;
-                min-height: 30px;
-            }
-            QScrollBar::sub-line, QScrollBar::add-line {
-                height: 0px;
-            }
-            QScrollBar::add-page, QScrollBar::sub-page {
-                background: transparent;
-            }
-        """)
-
-        data = [
-            ("Zapalenie płuc",     "Augmentin 250mg, 2× dziennie…",    "30.11.2020"),
-            ("Awitaminoza",        "Witamina D 1000 IU raz w tygodniu", "28.11.2020"),
-            ("Świąd alergiczny",   "Maść Dermatix na zmiany skórne",   "20.05.2020"),
-            ("Rana cięta",         "Przemyć chlorheksydyną, kontrola 7 dni", "06.06.2020"),
-        ]
-        for r, (diag, tx, date) in enumerate(data):
-            table.setItem(r, 0, QTableWidgetItem(diag))
-            itm = QTableWidgetItem(tx)
-            itm.setTextAlignment(Qt.AlignLeft | Qt.AlignTop)
-            table.setItem(r, 1, itm)
-            itm_date = QTableWidgetItem(date)
-            itm_date.setForeground(QBrush(QColor('#F53838')))
-            table.setItem(r, 2, itm_date)
-            arrow = QTableWidgetItem("›")
-            arrow.setTextAlignment(Qt.AlignCenter)
-            arrow.setForeground(QBrush(QColor('#38a2db')))
-            table.setItem(r, 3, arrow)
-
-        layout.addWidget(table)
-        return group
-
-    def _create_vaccinations(self) -> QGroupBox:
-        group = QGroupBox()
-        group.setStyleSheet("""
-            QGroupBox {
-                background-color: #ffffff;
-                border: 1px solid #e5e7eb;
-                border-radius: 8px;
-                margin-top: 16px;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                subcontrol-position: top left;
-                padding: 0 12px;
-                font-size: 18px;
-                font-weight: bold;
-                color: #111827;
-                background-color: #ffffff;
-            }
-        """)
-
-        layout = QVBoxLayout(group)
-
-        header = QHBoxLayout()
-        title = QLabel("Szczepienia")
-        title.setFont(QFont('Arial', 12, QFont.Bold))
-        header.addWidget(title)
-        header.addStretch()
-        menu_btn = QToolButton()
-        menu_btn.setText("\u22EE")
-        menu_btn.setStyleSheet(
-            "QToolButton { border:none; font-size:16px; color:#6b7280; }"
-            "QToolButton:hover { color:#111827; }"
-        )
-        header.addWidget(menu_btn)
-        layout.addLayout(header)
-
-        table = QTableWidget(6, 5)
-        table.setHorizontalHeaderLabels([
-            "Choroba", "Status", "Szczepionka", "Pierwotne", "Powtórka"
-        ])
-        table.setEditTriggers(QTableWidget.NoEditTriggers)
-        table.setSelectionMode(QTableWidget.NoSelection)
-        table.setFocusPolicy(Qt.NoFocus)
-        table.setWordWrap(True)
-        table.setShowGrid(False)
-        table.verticalHeader().setVisible(False)
-
-        table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
-        table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
-        table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Stretch)
-        table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeToContents)
-        table.horizontalHeader().setSectionResizeMode(4, QHeaderView.ResizeToContents)
-        table.verticalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
-
-        table.setStyleSheet("""
-            QTableWidget {
-                border: none;
-                background-color: transparent;
-            }
-            QHeaderView::section {
-                background-color: #ffffff;
-                border: none;
-                padding: 8px;
-                font-weight: 600;
-                color: #111827;
-                border-bottom: 2px solid #e5e7eb;
-            }
-            QTableWidget::item {
-                border-bottom: 1px solid #e5e7eb;
-                padding: 10px 6px;
-            }
-        """)
-
-        vsb = table.verticalScrollBar()
-        vsb.setStyleSheet("""
-            QScrollBar:vertical {
-                background: transparent;
-                width: 8px;
-                margin: 0px;
-            }
-            QScrollBar::handle:vertical {
-                background: rgba(0, 0, 0, 0.15);
-                border-radius: 4px;
-                min-height: 30px;
-            }
-            QScrollBar::sub-line, QScrollBar::add-line {
-                height: 0px;
-            }
-            QScrollBar::add-page, QScrollBar::sub-page {
-                background: transparent;
-            }
-        """)
-
-        vac_data = [
-            ("Wścieklizna",       "Zrobione",     "Nobivac DHP",   "21.03.2020", "07.07.2020"),
-            ("Zapalenie wątroby", "Do zrobienia", "Nobivac DHPPi","07.07.2020", "25.11.2020"),
-            ("Dżuma",             "Do zrobienia", "Nobivac DHPPi","07.07.2020", "25.11.2020"),
-            ("Parwowiroza",       "Zrobione",     "Nobivac DHP",   "21.03.2020", "07.07.2020"),
-            ("Parainfluenza",     "Do zrobienia", "Nobivac KC",    "13.12.2020", "Raz"),
-            ("Leptospiroza",      "Zrobione",     "Nobivac Lepto4","05.12.2019", "Raz"),
-        ]
-        for r, (c, s, v, p, rep) in enumerate(vac_data):
-            table.setItem(r, 0, QTableWidgetItem(c))
-            table.setItem(r, 1, QTableWidgetItem(s))
-            table.setItem(r, 2, QTableWidgetItem(v))
-            table.setItem(r, 3, QTableWidgetItem(p))
-            table.setItem(r, 4, QTableWidgetItem(rep))
-
-        layout.addWidget(table)
-        return group
+    def on_animal_changed(self, index: int):
+        """Wywoływane przy wyborze innego zwierzaka."""
+        self.animal_id = self.combo_animal.currentData()
+        self.refresh_data()
 
     def _groupbox_css(self) -> str:
         return """
@@ -322,77 +118,61 @@ class DashboardWindow(QMainWindow):
             }
         """
 
+    def _create_medical_card(self) -> QGroupBox:
+        group = QGroupBox("Karta medyczna")
+        group.setStyleSheet(self._groupbox_css())
+        layout = QVBoxLayout(group)
+
+        # Nagłówek
+        hdr = QHBoxLayout()
+        lbl = QLabel("Karta medyczna")
+        lbl.setFont(QFont('Arial', 12, QFont.Bold))
+        hdr.addWidget(lbl); hdr.addStretch()
+        btn = QToolButton(); btn.setText("\u22EE"); hdr.addWidget(btn)
+        layout.addLayout(hdr)
+
+        # Tabela
+        self.med_table = QTableWidget(0, 4)
+        self.med_table.setHorizontalHeaderLabels(["Rozpoznanie", "Leczenie", "Data kontroli", ""])
+        self.med_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.med_table.setSelectionMode(QTableWidget.NoSelection)
+        self.med_table.setFrameShape(QFrame.NoFrame)
+        self.med_table.setShowGrid(False)
+        self.med_table.verticalHeader().setVisible(False)
+        self.med_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        self.med_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        self.med_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
+        self.med_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.Fixed)
+        self.med_table.setColumnWidth(3, 20)
+        self.med_table.verticalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+        self.med_table.setStyleSheet("""
+            QHeaderView::section {
+                background-color: #ffffff; border:none; padding:8px;
+                font-weight:600; color:#111827; border-bottom:2px solid #e5e7eb;
+            }
+            QTableWidget {
+                border:none; background:transparent;
+            }
+            QTableWidget::item {
+                border-bottom:1px solid #e5e7eb; padding:10px 6px;
+            }
+        """)
+        layout.addWidget(self.med_table)
+
+        return group
+
     def _create_weight_chart(self) -> QGroupBox:
         group = QGroupBox("Waga zwierzaka")
         group.setStyleSheet(self._groupbox_css())
         layout = QVBoxLayout(group)
 
-        header = QHBoxLayout()
-        title = QLabel("Waga zwierzaka")
-        title.setFont(QFont('Arial', 12, QFont.Bold))
-        header.addWidget(title)
-        header.addStretch()
-        menu_btn = QToolButton()
-        menu_btn.setText("\u22EE")
-        menu_btn.setStyleSheet(
-            "QToolButton { border:none; font-size:16px; color:#6b7280; }"
-            "QToolButton:hover { color:#111827; }"
-        )
-        header.addWidget(menu_btn)
-        layout.addLayout(header)
+        # Pusty QChart – dane wstawi _update_weight_chart
+        chart = QChart()
+        chart.setBackgroundVisible(False)
+        chart.legend().hide()
 
-        # 1) Dane: waga + odpowiadające im dni pierwszego każdego miesiąca
-        weights = [2000, 2500, 2300, 2400, 2600, 2800, 3000, 3200, 3100, 3000, 2900, 2800]
-        dates   = [QDate(2025, m, 1) for m in range(1, 13)]
-
-        # 2) Zakres Y
-        mn, mx = min(weights), max(weights)
-        dy = (mx - mn) * 0.1
-        y_min, y_max = mn - dy, mx + dy
-
-        # 3) Rzut na timestamp i Catmull–Rom densyfikacja
-        raw_pts = [(QDateTime(d).toMSecsSinceEpoch(), w) for d, w in zip(dates, weights)]
-        def catmull_rom(pts, samples=20):
-            def CR(p0,p1,p2,p3,t):
-                a = 2*p1[1]
-                b = -p0[1] + p2[1]
-                c = 2*p0[1] - 5*p1[1] + 4*p2[1] - p3[1]
-                d = -p0[1] + 3*p1[1] - 3*p2[1] + p3[1]
-                ax = 2*p1[0]
-                bx = -p0[0] + p2[0]
-                cx = 2*p0[0] - 5*p1[0] + 4*p2[0] - p3[0]
-                dx = -p0[0] + 3*p1[0] - 3*p2[0] + p3[0]
-                t2, t3 = t*t, t*t*t
-                y = 0.5*(a + b*t + c*t2 + d*t3)
-                x = 0.5*(ax + bx*t + cx*t2 + dx*t3)
-                return x, y
-
-            dense = []
-            n = len(pts)
-            for i in range(n-1):
-                p0 = pts[i-1] if i-1>=0 else pts[i]
-                p1, p2 = pts[i], pts[i+1]
-                p3 = pts[i+2] if i+2<n else pts[i+1]
-                for s in range(samples):
-                    dense.append(CR(p0, p1, p2, p3, s/ samples))
-            dense.append(pts[-1])
-            return dense
-
-        dense_pts = catmull_rom(raw_pts, samples=20)
-
-        # 4) Tworzymy gęstą linię i bazę(y=0)
         top = QLineSeries()
-        for x, y in dense_pts:
-            top.append(x, y)
-        pen = QPen(QColor("#38A2DB"))
-        pen.setWidth(2); pen.setCapStyle(Qt.RoundCap); pen.setJoinStyle(Qt.RoundJoin)
-        top.setPen(pen)
-
         base = QLineSeries()
-        for x, _ in dense_pts:
-            base.append(x, 0)
-
-        # 5) Obszar z gradientowym wypełnieniem
         area = QAreaSeries(top, base)
         grad = QLinearGradient(0, 0, 0, 1)
         grad.setCoordinateMode(QGradient.ObjectBoundingMode)
@@ -401,57 +181,31 @@ class DashboardWindow(QMainWindow):
         area.setBrush(QBrush(grad))
         area.setPen(QPen(Qt.NoPen))
 
-        # 6) Scatter oryginalnych punktów
         scatter = QScatterSeries()
-        scatter.setMarkerSize(8)
+        scatter.setMarkerSize(6)
         scatter.setColor(QColor("#38A2DB"))
         scatter.setBorderColor(QColor("#ffffff"))
-        for d, w in zip(dates, weights):
-            scatter.append(QDateTime(d).toMSecsSinceEpoch(), w)
 
-        def show_tt(pt, state):
-            if state:
-                dt = QDateTime.fromMSecsSinceEpoch(int(pt.x())).date().toString("MMM yyyy")
-                QToolTip.showText(QCursor.pos(), f"{dt}: {int(pt.y())} g")
-        scatter.hovered.connect(show_tt)
-
-        # 7) Budujemy QChart
-        chart = QChart()
-        chart.addSeries(area)
-        chart.addSeries(top)
-        chart.addSeries(scatter)
-        chart.setBackgroundVisible(False)
-        chart.legend().hide()
-
-        # 8) Oś X datowa
         axisX = QDateTimeAxis()
-        axisX.setFormat("MMM")
-        axisX.setTitleText("Miesiąc")
-        axisX.setTickCount(len(dates))
-        axisX.setRange(
-            QDateTime(dates[0]),
-            QDateTime(dates[-1].addMonths(1))
-        )
-        chart.addAxis(axisX, Qt.AlignBottom)
-        for s in (area, top, scatter):
-            s.attachAxis(axisX)
-
-        # 9) Oś Y
+        axisX.setFormat("dd.MM.yyyy")
+        axisX.setTitleText("Data")
         axisY = QValueAxis()
-        axisY.setRange(0, y_max)
-        axisY.setLabelFormat("%d")
         axisY.setTitleText("Waga [g]")
-        chart.addAxis(axisY, Qt.AlignLeft)
+
         for s in (area, top, scatter):
+            chart.addSeries(s)
+            s.attachAxis(axisX)
             s.attachAxis(axisY)
 
-        # 10) View i porządkowanie GC
+        chart.addAxis(axisX, Qt.AlignBottom)
+        chart.addAxis(axisY, Qt.AlignLeft)
+
         view = QChartView(chart)
         view.setRenderHint(QPainter.Antialiasing)
         view.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        view.setStyleSheet("border:none; background-color:transparent;")
         layout.addWidget(view)
 
+        # Referencje do późniejszej aktualizacji
         group._chart   = chart
         group._top     = top
         group._base    = base
@@ -464,103 +218,204 @@ class DashboardWindow(QMainWindow):
         return group
 
     def _create_clinic_visits(self) -> QGroupBox:
-        group = QGroupBox()
-        group.setStyleSheet("""
-            QGroupBox {
-                background-color: #ffffff;
-                border: 1px solid #e5e7eb;
-                border-radius: 8px;
-                margin-top: 16px;
-            }
-        """)
-
+        group = QGroupBox("Wizyty kliniczne")
+        group.setStyleSheet(self._groupbox_css())
         layout = QVBoxLayout(group)
-        header = QHBoxLayout()
-        title = QLabel("Wizyty kliniczne")
-        title.setFont(QFont('Arial', 12, QFont.Bold))
-        header.addWidget(title)
-        header.addStretch()
-        menu_btn = QToolButton()
-        menu_btn.setText("\u22EE")
-        menu_btn.setStyleSheet(
-            "QToolButton { border:none; font-size:16px; color:#6b7280; }"
-            "QToolButton:hover { color:#111827; }"
-        )
-        header.addWidget(menu_btn)
-        layout.addLayout(header)
 
-        cal = QCalendarWidget()
-        cal.setFirstDayOfWeek(Qt.Monday)
-        cal.setVerticalHeaderFormat(QCalendarWidget.NoVerticalHeader)
-        cal.setHorizontalHeaderFormat(QCalendarWidget.ShortDayNames)
-        cal.setNavigationBarVisible(True)
-        cal.setGridVisible(False)
-        cal.setStyleSheet("""
-            QCalendarWidget {
-                background-color: transparent;
-                border: none;
-            }
-            QCalendarWidget QToolButton {
-                margin: 4px;
-                color: #111827;
-                font-size: 14px;
-                font-weight: bold;
-            }
-            QCalendarWidget QSpinBox {
-                width: 100px;
-                font-size: 14px;
-                font-weight: bold;
-                color: #111827;
-                background: transparent;
-                border: none;
-            }
-            QCalendarWidget QSpinBox::up-button,
-            QCalendarWidget QSpinBox::down-button {
-                width: 0; height: 0;
-            }
-            QCalendarWidget QAbstractItemView {
-                selection-background-color: #38a2db;
-                selection-color: white;
-                outline: none;
-                font-size: 12px;
-            }
-            QCalendarWidget QAbstractItemView::item {
-                border-radius: 4px;
-                height: 28px;
-                width: 28px;
-                margin: 2px;
-            }
-            QCalendarWidget QAbstractItemView::item:hover {
-                background: rgba(56,162,219,0.1);
-            }
-            QCalendarWidget QAbstractItemView::item:selected {
-                background: #38a2db;
-                color: white;
-            }
-        """)
-        layout.addWidget(cal)
+        self.clinic_calendar = QCalendarWidget()
+        self.clinic_calendar.setFirstDayOfWeek(Qt.Monday)
+        layout.addWidget(self.clinic_calendar)
 
-        date_lbl = QLabel("18.11.2020, 16:30")
-        date_lbl.setStyleSheet(
-            "color: #38a2db;"
-            "font-weight: bold;"
-            "font-size: 14px;"
-            "padding-left: 8px;"
+        self.visit_date_lbl = QLabel()
+        self.visit_date_lbl.setStyleSheet(
+            "color: #38a2db; font-weight: bold; font-size: 14px; padding-left:8px;"
         )
-        desc_lbl = QLabel("Kontrola i szczepienie, Dr. Petrikov V.V., pok.206")
-        desc_lbl.setWordWrap(True)
-        desc_lbl.setStyleSheet(
-            "color: #4b5563;"
-            "font-size: 13px;"
-            "padding: 2px 8px;"
-        )
-        layout.addWidget(date_lbl)
-        layout.addWidget(desc_lbl)
+        self.visit_desc_lbl = QLabel()
+        self.visit_desc_lbl.setWordWrap(True)
+        self.visit_desc_lbl.setStyleSheet("color: #4b5563; font-size:13px; padding:2px 8px;")
+        layout.addWidget(self.visit_date_lbl)
+        layout.addWidget(self.visit_desc_lbl)
 
+        self.clinic_calendar.selectionChanged.connect(self._clinic_on_date_changed)
         return group
 
-if __name__ == '__main__':
+    def refresh_data(self):
+        """Pobiera dane dla self.animal_id i odświeża UI."""
+
+        # — Karta medyczna —
+        try:
+            records = MedicalRecordService.list(self.animal_id) or []
+        except Exception as e:
+            QToolTip.showText(QCursor.pos(), f"Błąd pobierania karty: {e}")
+            records = []
+
+        self.med_table.setRowCount(0)
+        for row, rec in enumerate(records):
+            self.med_table.insertRow(row)
+            self.med_table.setItem(row, 0, QTableWidgetItem(rec.diagnosis or ""))
+            itm = QTableWidgetItem(rec.treatment or "")
+            itm.setTextAlignment(Qt.AlignLeft | Qt.AlignTop)
+            self.med_table.setItem(row, 1, itm)
+            cd = rec.control_date.strftime("%d.%m.%Y") if rec.control_date else ""
+            cd_item = QTableWidgetItem(cd); cd_item.setForeground(QBrush(QColor('#F53838')))
+            self.med_table.setItem(row, 2, cd_item)
+            arrow = QTableWidgetItem("›"); arrow.setTextAlignment(Qt.AlignCenter)
+            arrow.setForeground(QBrush(QColor('#38a2db')))
+            self.med_table.setItem(row, 3, arrow)
+
+        # — Wizyty (do wagi i kalendarza) —
+        try:
+            # Pobierz tylko wizyty tego klienta zamiast wszystkich
+            all_appts = AppointmentService.list_by_owner(self.client_id) or []  # :contentReference[oaicite:5]{index=5}
+        except Exception as e:
+            QToolTip.showText(QCursor.pos(), f"Błąd pobierania wizyt: {e}")
+            all_appts = []
+
+        # Filtrujemy wizyty dla wybranego zwierzaka
+        self.current_appointments = [
+            a for a in all_appts
+            if a.animal_id == self.animal_id
+        ]
+
+        # — Wykres wagi —
+        pts = sorted([
+            (int(a.visit_datetime.timestamp() * 1000), a.weight * 1000)
+            for a in self.current_appointments
+            if a.weight is not None
+        ], key=lambda x: x[0])
+
+        if pts:
+            self._update_weight_chart(pts)
+
+        # — Kalendarz wizyt —
+        # Usuń stare podświetlenia
+        for d in self.highlighted_dates:
+            self.clinic_calendar.setDateTextFormat(d, QTextCharFormat())
+        self.highlighted_dates.clear()
+
+        # Nowe podświetlenia
+        days = {
+            QDate(a.visit_datetime.date().year,
+                  a.visit_datetime.date().month,
+                  a.visit_datetime.date().day)
+            for a in self.current_appointments
+        }
+        fmt = QTextCharFormat(); fmt.setBackground(QBrush(QColor(56, 162, 219, 50)))
+        for d in days:
+            self.clinic_calendar.setDateTextFormat(d, fmt)
+        self.highlighted_dates = list(days)
+
+        # Odśwież opis wizyty dla zaznaczonej daty
+        self._clinic_on_date_changed()
+
+    def _update_weight_chart(self, pts):
+        """Aktualizuje QChart we właściwościach self._create_weight_chart()."""
+        # Funkcja Catmull-Rom do wygładzania
+        def catmull_rom(points, samples=20):
+            def CR(p0, p1, p2, p3, t):
+                a = 2*p1[1]
+                b = -p0[1] + p2[1]
+                c = 2*p0[1] - 5*p1[1] + 4*p2[1] - p3[1]
+                d = -p0[1] + 3*p1[1] - 3*p2[1] + p3[1]
+                ax = 2*p1[0]
+                bx = -p0[0] + p2[0]
+                cx = 2*p0[0] - 5*p1[0] + 4*p2[0] - p3[0]
+                dx = -p0[0] + 3*p1[0] - 3*p2[0] + p3[0]
+                t2, t3 = t*t, t*t*t
+                x = 0.5 * (ax + bx*t + cx*t2 + dx*t3)
+                y = 0.5 * (a  + b*t  + c*t2  + d*t3)
+                return x, y
+
+            dense = []
+            n = len(points)
+            if n < 2:
+                return points
+            for i in range(n-1):
+                p0 = points[i-1] if i > 0 else points[i]
+                p1, p2 = points[i], points[i+1]
+                p3 = points[i+2] if i+2 < n else p2
+                for s in range(samples):
+                    dense.append(CR(p0, p1, p2, p3, s/samples))
+            dense.append(points[-1])
+            return dense
+
+        # Przygotuj punkty gęste i surowe
+        raw = pts
+        dense = catmull_rom(raw)
+        weights = [w for _, w in raw]
+        mn, mx = min(weights), max(weights)
+        dy = (mx - mn) * 0.1 if mx != mn else mx*0.1
+        y_max = mx + dy
+
+        # Wyczyść stare serie
+        chart   = self._create_weight_chart.__self__._chart
+        top     = self._create_weight_chart.__self__._top
+        base    = self._create_weight_chart.__self__._base
+        area    = self._create_weight_chart.__self__._area
+        scatter = self._create_weight_chart.__self__._scatter
+        axisX   = self._create_weight_chart.__self__._axisX
+        axisY   = self._create_weight_chart.__self__._axisY
+
+        top.clear(); base.clear(); scatter.clear()
+        chart.removeAllSeries()
+
+        # Nowe serie
+        for x, y in dense:
+            top.append(x, y)
+            base.append(x, 0)
+
+        pen = QPen(QColor("#38A2DB"))
+        pen.setWidth(2)
+        top.setPen(pen)
+
+        new_area = QAreaSeries(top, base)
+        grad = QLinearGradient(0, 0, 0, 1)
+        grad.setCoordinateMode(QGradient.ObjectBoundingMode)
+        grad.setColorAt(0.0, QColor(56,162,219,120))
+        grad.setColorAt(1.0, QColor(56,162,219,20))
+        new_area.setBrush(QBrush(grad))
+        new_area.setPen(QPen(Qt.NoPen))
+
+        new_scatter = QScatterSeries()
+        new_scatter.setMarkerSize(6)
+        new_scatter.setColor(QColor("#38A2DB"))
+        new_scatter.setBorderColor(QColor("#ffffff"))
+        for x, y in raw:
+            new_scatter.append(x, y)
+
+        # ToolTip
+        def show_tt(pt, state):
+            if state:
+                dt = QDateTime.fromMSecsSinceEpoch(int(pt.x())).date().toString("dd.MM.yyyy")
+                QToolTip.showText(QCursor.pos(), f"{dt}: {int(pt.y())} g")
+        new_scatter.hovered.connect(show_tt)
+
+        # Dodajemy serie
+        for series in (new_area, top, new_scatter):
+            chart.addSeries(series)
+            series.attachAxis(axisX)
+            series.attachAxis(axisY)
+
+        axisY.setRange(0, y_max)
+        chart.addAxis(axisX, Qt.AlignBottom)
+        chart.addAxis(axisY, Qt.AlignLeft)
+        self._create_weight_chart.__self__._view.repaint()
+
+    def _clinic_on_date_changed(self):
+        sel = self.clinic_calendar.selectedDate().toPyDate()
+        todays = [a for a in self.current_appointments if a.visit_datetime.date() == sel]
+        if not todays:
+            self.visit_date_lbl.clear(); self.visit_desc_lbl.clear()
+            return
+        ap = sorted(todays, key=lambda x: x.visit_datetime)[0]
+        self.visit_date_lbl.setText(ap.visit_datetime.strftime("%d.%m.%Y, %H:%M"))
+        desc = ap.reason or ""
+        doc  = f"Dr {ap.doctor.first_name} {ap.doctor.last_name}"
+        self.visit_desc_lbl.setText(f"{desc} — {doc}")
+
+
+if __name__ == "__main__":
     app = QApplication(sys.argv)
-    window = DashboardWindow()
+    window = DashboardWindow(client_id=1)
     window.show()
     sys.exit(app.exec_())
