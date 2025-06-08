@@ -22,6 +22,8 @@ from PyQt5.QtChart import (
 from vetclinic_gui.services.medical_records_service import MedicalRecordService
 from vetclinic_gui.services.appointments_service    import AppointmentService
 from vetclinic_gui.services.animals_service         import AnimalService
+from vetclinic_gui.services.weight_logs_service import WeightLogService
+
 
 
 class DashboardWindow(QMainWindow):
@@ -119,61 +121,143 @@ class DashboardWindow(QMainWindow):
         """
 
     def _create_medical_card(self) -> QGroupBox:
-        group = QGroupBox("Karta medyczna")
+        group = QGroupBox("Historia wizyt")
         group.setStyleSheet(self._groupbox_css())
         layout = QVBoxLayout(group)
 
-        # Nagłówek
+        # ——— Nagłówek ———
         hdr = QHBoxLayout()
-        lbl = QLabel("Karta medyczna")
+        lbl = QLabel("Historia wizyt")
         lbl.setFont(QFont('Arial', 12, QFont.Bold))
-        hdr.addWidget(lbl); hdr.addStretch()
-        btn = QToolButton(); btn.setText("\u22EE"); hdr.addWidget(btn)
+        hdr.addWidget(lbl)
+        hdr.addStretch()
         layout.addLayout(hdr)
 
-        # Tabela
+        # ——— Tabela ———
         self.med_table = QTableWidget(0, 4)
-        self.med_table.setHorizontalHeaderLabels(["Rozpoznanie", "Leczenie", "Data kontroli", ""])
+        self.med_table.setHorizontalHeaderLabels([
+            "Powód",       # <— zmienione z „Notatki”
+            "Priorytet",
+            "Leczenie",
+            "Data wizyty"
+        ])
         self.med_table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.med_table.setSelectionMode(QTableWidget.NoSelection)
-        self.med_table.setFrameShape(QFrame.NoFrame)
+        self.med_table.setFocusPolicy(Qt.NoFocus)
+        self.med_table.setWordWrap(True)
         self.med_table.setShowGrid(False)
-        self.med_table.verticalHeader().setVisible(False)
-        self.med_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
-        self.med_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
-        self.med_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
-        self.med_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.Fixed)
-        self.med_table.setColumnWidth(3, 20)
-        self.med_table.verticalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
+        self.med_table.setAlternatingRowColors(True)
+
         self.med_table.setStyleSheet("""
             QHeaderView::section {
-                background-color: #ffffff; border:none; padding:8px;
-                font-weight:600; color:#111827; border-bottom:2px solid #e5e7eb;
+                background-color: #f5f7fa;
+                color: #444;
+                padding: 8px;
+                font-weight: bold;
+                border: none;
+                border-bottom: 2px solid #e5e7eb;
             }
             QTableWidget {
-                border:none; background:transparent;
+                background-color: #ffffff;
+                gridline-color: #e5e7eb;
             }
             QTableWidget::item {
-                border-bottom:1px solid #e5e7eb; padding:10px 6px;
+                padding: 8px;
+                border-bottom: 1px solid #e5e7eb;
+            }
+            QTableWidget::item:selected {
+                background-color: #eef4fb;
             }
         """)
-        layout.addWidget(self.med_table)
 
+        header = self.med_table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.Stretch)           # Powód
+        header.setSectionResizeMode(1, QHeaderView.ResizeToContents)  # Priorytet
+        header.setSectionResizeMode(2, QHeaderView.Stretch)           # Leczenie
+        header.setSectionResizeMode(3, QHeaderView.ResizeToContents)  # Data wizyty
+
+        # Pionowy scroll; poziomy wyłączony
+        self.med_table.setVerticalScrollMode(QTableWidget.ScrollPerPixel)
+        self.med_table.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+
+        layout.addWidget(self.med_table)
         return group
+
+    def refresh_data(self):
+        """Pobiera wizyty, wypełnia tabelę 'Historia wizyt', wykres wagi i kalendarz."""
+
+        try:
+            all_appts = AppointmentService.list_by_owner(self.client_id) or []
+        except Exception as e:
+            QToolTip.showText(QCursor.pos(), f"Błąd pobierania wizyt: {e}")
+            all_appts = []
+
+        # 2) Filtrowanie tylko wizyt wybranego zwierzaka
+        appts = [a for a in all_appts if a.animal_id == self.animal_id]
+
+        self.med_table.setRowCount(0)
+        for row, appt in enumerate(appts):
+            self.med_table.insertRow(row)
+
+            # Powód (reason)
+            itm_reason = QTableWidgetItem(appt.reason or "")
+            itm_reason.setTextAlignment(Qt.AlignLeft | Qt.AlignTop)
+            self.med_table.setItem(row, 0, itm_reason)
+
+            # Priorytet
+            itm_prio = QTableWidgetItem(appt.priority or "")
+            itm_prio.setTextAlignment(Qt.AlignCenter)
+            self.med_table.setItem(row, 1, itm_prio)
+
+            # Leczenie
+            itm_treat = QTableWidgetItem(appt.treatment or "")
+            itm_treat.setTextAlignment(Qt.AlignLeft | Qt.AlignTop)
+            self.med_table.setItem(row, 2, itm_treat)
+
+            # Data wizyty
+            dt = appt.visit_datetime.strftime("%d.%m.%Y\n%H:%M")
+            itm_date = QTableWidgetItem(dt)
+            itm_date.setTextAlignment(Qt.AlignCenter)
+            self.med_table.setItem(row, 3, itm_date)
+
+        self.med_table.resizeRowsToContents()
+
+        try:
+            logs = WeightLogService.list_by_animal(self.animal_id) or []
+        except Exception as e:
+            QToolTip.showText(QCursor.pos(), f"Błąd pobierania historii wag: {e}")
+            logs = []
+
+        # przygotuj punkty (timestamp_ms, waga_g)
+        pts = sorted(
+            [
+                (int(w.logged_at.timestamp() * 1000), w.weight * 1000)
+                for w in logs
+                if w.weight is not None
+            ],
+            key=lambda x: x[0]
+        )
+
+        if pts:
+            self._update_weight_chart(pts)
+
 
     def _create_weight_chart(self) -> QGroupBox:
         group = QGroupBox("Waga zwierzaka")
         group.setStyleSheet(self._groupbox_css())
         layout = QVBoxLayout(group)
 
-        # Pusty QChart – dane wstawi _update_weight_chart
         chart = QChart()
         chart.setBackgroundVisible(False)
         chart.legend().hide()
 
-        top = QLineSeries()
-        base = QLineSeries()
-        area = QAreaSeries(top, base)
+        # puste serie – uzupełni je _update_weight_chart
+        top     = QLineSeries()
+        base    = QLineSeries()
+        area    = QAreaSeries(top, base)
+        scatter = QScatterSeries()
+
+        # gradient wypełnienia
         grad = QLinearGradient(0, 0, 0, 1)
         grad.setCoordinateMode(QGradient.ObjectBoundingMode)
         grad.setColorAt(0.0, QColor(56,162,219,120))
@@ -181,7 +265,6 @@ class DashboardWindow(QMainWindow):
         area.setBrush(QBrush(grad))
         area.setPen(QPen(Qt.NoPen))
 
-        scatter = QScatterSeries()
         scatter.setMarkerSize(6)
         scatter.setColor(QColor("#38A2DB"))
         scatter.setBorderColor(QColor("#ffffff"))
@@ -205,7 +288,7 @@ class DashboardWindow(QMainWindow):
         view.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         layout.addWidget(view)
 
-        # Referencje do późniejszej aktualizacji
+        # referencje do późniejszej aktualizacji
         group._chart   = chart
         group._top     = top
         group._base    = base
@@ -216,6 +299,7 @@ class DashboardWindow(QMainWindow):
         group._view    = view
 
         return group
+
 
     def _create_clinic_visits(self) -> QGroupBox:
         group = QGroupBox("Wizyty kliniczne")
@@ -242,71 +326,34 @@ class DashboardWindow(QMainWindow):
     def refresh_data(self):
         """Pobiera dane dla self.animal_id i odświeża UI."""
 
-        # — Karta medyczna —
         try:
-            records = MedicalRecordService.list(self.animal_id) or []
-        except Exception as e:
-            QToolTip.showText(QCursor.pos(), f"Błąd pobierania karty: {e}")
-            records = []
-
-        self.med_table.setRowCount(0)
-        for row, rec in enumerate(records):
-            self.med_table.insertRow(row)
-            self.med_table.setItem(row, 0, QTableWidgetItem(rec.diagnosis or ""))
-            itm = QTableWidgetItem(rec.treatment or "")
-            itm.setTextAlignment(Qt.AlignLeft | Qt.AlignTop)
-            self.med_table.setItem(row, 1, itm)
-            cd = rec.control_date.strftime("%d.%m.%Y") if rec.control_date else ""
-            cd_item = QTableWidgetItem(cd); cd_item.setForeground(QBrush(QColor('#F53838')))
-            self.med_table.setItem(row, 2, cd_item)
-            arrow = QTableWidgetItem("›"); arrow.setTextAlignment(Qt.AlignCenter)
-            arrow.setForeground(QBrush(QColor('#38a2db')))
-            self.med_table.setItem(row, 3, arrow)
-
-        # — Wizyty (do wagi i kalendarza) —
-        try:
-            # Pobierz tylko wizyty tego klienta zamiast wszystkich
-            all_appts = AppointmentService.list_by_owner(self.client_id) or []  # :contentReference[oaicite:5]{index=5}
+            all_appts = AppointmentService.list_by_owner(self.client_id) or []
         except Exception as e:
             QToolTip.showText(QCursor.pos(), f"Błąd pobierania wizyt: {e}")
             all_appts = []
 
-        # Filtrujemy wizyty dla wybranego zwierzaka
-        self.current_appointments = [
-            a for a in all_appts
-            if a.animal_id == self.animal_id
-        ]
+        appts = [a for a in all_appts if a.animal_id == self.animal_id]
 
-        # — Wykres wagi —
-        pts = sorted([
-            (int(a.visit_datetime.timestamp() * 1000), a.weight * 1000)
-            for a in self.current_appointments
-            if a.weight is not None
-        ], key=lambda x: x[0])
-
-        if pts:
-            self._update_weight_chart(pts)
-
-        # — Kalendarz wizyt —
-        # Usuń stare podświetlenia
-        for d in self.highlighted_dates:
-            self.clinic_calendar.setDateTextFormat(d, QTextCharFormat())
-        self.highlighted_dates.clear()
-
-        # Nowe podświetlenia
-        days = {
-            QDate(a.visit_datetime.date().year,
-                  a.visit_datetime.date().month,
-                  a.visit_datetime.date().day)
-            for a in self.current_appointments
-        }
-        fmt = QTextCharFormat(); fmt.setBackground(QBrush(QColor(56, 162, 219, 50)))
-        for d in days:
-            self.clinic_calendar.setDateTextFormat(d, fmt)
-        self.highlighted_dates = list(days)
-
-        # Odśwież opis wizyty dla zaznaczonej daty
-        self._clinic_on_date_changed()
+        self.med_table.setRowCount(0)
+        for row, appt in enumerate(appts):
+            self.med_table.insertRow(row)
+            # Notatki
+            itm_notes = QTableWidgetItem(appt.notes or "")
+            itm_notes.setTextAlignment(Qt.AlignLeft | Qt.AlignTop)
+            self.med_table.setItem(row, 0, itm_notes)
+            # Priorytet
+            itm_prio = QTableWidgetItem(appt.priority or "")
+            itm_prio.setTextAlignment(Qt.AlignCenter)
+            self.med_table.setItem(row, 1, itm_prio)
+            # Leczenie
+            itm_treat = QTableWidgetItem(appt.treatment or "")
+            itm_treat.setTextAlignment(Qt.AlignLeft | Qt.AlignTop)
+            self.med_table.setItem(row, 2, itm_treat)
+            # Data wizyty
+            dt = appt.visit_datetime.strftime("%d.%m.%Y\n%H:%M")
+            itm_date = QTableWidgetItem(dt)
+            itm_date.setTextAlignment(Qt.AlignCenter)
+            self.med_table.setItem(row, 3, itm_date)
 
     def _update_weight_chart(self, pts):
         """Aktualizuje QChart we właściwościach self._create_weight_chart()."""
