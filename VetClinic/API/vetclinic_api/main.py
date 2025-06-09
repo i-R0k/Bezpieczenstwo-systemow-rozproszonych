@@ -11,7 +11,7 @@ import uvicorn
 from vetclinic_api.routers import (
     users, doctors, appointments, animals,
     weight_logs, medical_records, invoices,
-    consultants, facilities, blockchain
+    consultants, facilities
 )
 from vetclinic_api.core.database import engine, Base
 
@@ -31,7 +31,6 @@ app.include_router(animals.router)
 app.include_router(medical_records.router)
 app.include_router(invoices.router)
 app.include_router(weight_logs.router)
-app.include_router(blockchain.router)
  
 
 # Tworzenie tabel w bazie danych (jeśli nie istnieją)

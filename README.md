@@ -190,15 +190,16 @@ Projekt został zbudowany w oparciu o Pythonowy stos technologiczny:
 
 * ✅ Przeprowadzenie testów penetracyjnych (przy użyciu narzędzi OWASP ZAP lub podobnych).
 * ✅ Usprawnienie konfiguracji FastAPI pod kątem wydajności i bezpieczeństwa.
+
 * ✅ Dokumentacja wdrożonych zabezpieczeń oraz przeprowadzonych testów.
 
 ### Tydzień 9: Przygotowanie środowiska blockchain
 
-- ✅ Wybór platformy blockchain (np. Ethereum) oraz konfiguracja lokalnej sieci testowej (np. Ganache).
-- ✅ Instalacja Web3.py i konfiguracja połączenia z lokalnym blockchainem.
-- ✅ Przeprowadzenie pierwszych testów połączenia i zapoznanie się z dokumentacją Web3.py.
-- ✅ Przygotowanie przykładowego smart kontraktu (np. prosty rejestr historii medycznej).
-- ✅ Dokumentacja konfiguracji środowiska blockchain.
+- [ ] Wybór platformy blockchain (np. Ethereum) oraz konfiguracja lokalnej sieci testowej (np. Ganache).
+- [ ] Instalacja Web3.py i konfiguracja połączenia z lokalnym blockchainem.
+- [ ] Przeprowadzenie pierwszych testów połączenia i zapoznanie się z dokumentacją Web3.py.
+- [ ] Przygotowanie przykładowego smart kontraktu (np. prosty rejestr historii medycznej).
+- [ ] Dokumentacja konfiguracji środowiska blockchain.
 
 ### Tydzień 10: Implementacja smart kontraktu i integracja z backendem
 

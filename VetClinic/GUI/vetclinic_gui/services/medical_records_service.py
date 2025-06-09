@@ -29,14 +29,6 @@ class MedicalRecordsService:
         finally:
             db.close()
 
-    def list_by_animal(animal_id: int):
-        db = SessionLocal()
-        try:
-            all_recs = list_medical_records(db, skip=0, limit=1000)
-            return [r for r in all_recs if getattr(r, "animal_id", None) == animal_id]
-        finally:
-            db.close()
-
     @staticmethod
     def get(record_id: int):
         db = SessionLocal()
