@@ -5,7 +5,7 @@ from fastapi import HTTPException, status
 from vetclinic_api.crud.appointments_crud import get_appointment
 from vetclinic_api.crud.animal_crud import get_animal
 from vetclinic_api.models.medical_records import MedicalRecord as MRModel
-from vetclinic_api.schemas.medical_records import MedicalRecordCreate, MedicalRecordUpdate, MedicalRecordResponse
+from vetclinic_api.schemas.medical_records import MedicalRecordCreate, MedicalRecordUpdate, MedicalRecord
 from vetclinic_api.crud.blockchain_crud import (
     add_record as bc_add_record,
     update_record as bc_update_record,
@@ -38,7 +38,7 @@ def get_medical_record(db: Session, record_id: int) -> MRModel:
     return rec
 
 
-def create_medical_record(db: Session, data: MedicalRecordCreate) -> MedicalRecordResponse:
+def create_medical_record(db: Session, data: MedicalRecordCreate) -> MedicalRecord:
     # Validate related entities
     get_appointment(db, data.appointment_id)
     get_animal(db, data.animal_id)
@@ -70,7 +70,7 @@ def create_medical_record(db: Session, data: MedicalRecordCreate) -> MedicalReco
     tx_hash = bc_add_record(rec.id, data_hash)
 
     # Return combined result
-    return MedicalRecordResponse(
+    return MedicalRecord(
         id=rec.id,
         appointment_id=rec.appointment_id,
         animal_id=rec.animal_id,
@@ -85,7 +85,7 @@ def create_medical_record(db: Session, data: MedicalRecordCreate) -> MedicalReco
     )
 
 
-def update_medical_record(db: Session, record_id: int, data: MedicalRecordUpdate) -> MedicalRecordResponse:
+def update_medical_record(db: Session, record_id: int, data: MedicalRecordUpdate) -> MedicalRecord:
     db_rec = get_medical_record(db, record_id)
 
     # Validate and update DB fields
@@ -117,7 +117,7 @@ def update_medical_record(db: Session, record_id: int, data: MedicalRecordUpdate
     # Update on blockchain
     tx_hash = bc_update_record(db_rec.id, new_hash)
 
-    return MedicalRecordResponse(
+    return MedicalRecord(
         id=db_rec.id,
         appointment_id=db_rec.appointment_id,
         animal_id=db_rec.animal_id,
