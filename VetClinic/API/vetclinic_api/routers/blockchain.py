@@ -1,88 +1,41 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
-from typing import List
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
+from vetclinic_api.crud import blockchain_crud
 
-from vetclinic_api.schemas.medical_records import (
-    MedicalRecordCreate,
-    MedicalRecord,
-    MedicalRecordUpdate
-)
-from vetclinic_api.crud.medical_records import (
-    create_medical_record,
-    list_medical_records,
-    list_medical_records_by_appointment,
-    get_medical_record as crud_get_record,
-    update_medical_record,
-    delete_medical_record
-)
-from vetclinic_api.core.database import get_db
+router = APIRouter()
 
-# Tutaj definiujemy router i prefix
-router = APIRouter(
-    prefix="/medical_records",
-    tags=["Medical Records"]
-)
+class BlockchainRecord(BaseModel):
+    id: int
+    data_hash: str
 
-@router.get("/", response_model=List[MedicalRecord])
-def read_medical_records(
-    skip: int = 0,
-    limit: int = 100,
-    db: Session = Depends(get_db)
-):
-    return list_medical_records(db, skip, limit)
-
-@router.get("/appointment/{appointment_id}", response_model=List[MedicalRecord])
-def read_by_appointment(
-    appointment_id: int,
-    db: Session = Depends(get_db)
-):
-    return list_medical_records_by_appointment(db, appointment_id)
-
-@router.get("/{record_id}", response_model=MedicalRecord)
-def read_medical_record(
-    record_id: int,
-    db: Session = Depends(get_db)
-):
+@router.post("/blockchain/record")
+def add_blockchain_record(record: BlockchainRecord):
     try:
-        return crud_get_record(db, record_id)
-    except HTTPException:
-        # jeśli nie ma rekordu — przekaż wyjątek dalej
-        raise
+        tx_hash = blockchain_crud.add_record(record.id, record.data_hash)
+        return {"status": "ok", "tx_hash": tx_hash}
     except Exception as e:
-        # inne błędy zwracamy 500
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/", response_model=MedicalRecord, status_code=status.HTTP_201_CREATED)
-def create_record(
-    record: MedicalRecordCreate,
-    db: Session = Depends(get_db)
-):
+@router.get("/blockchain/record/{record_id}")
+def get_blockchain_record(record_id: int):
     try:
-        return create_medical_record(db, record)
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+        r_id, data_hash, timestamp = blockchain_crud.get_record(record_id)
+        return {"id": r_id, "data_hash": data_hash, "timestamp": timestamp}
+    except Exception:
+        raise HTTPException(status_code=404, detail="Record not found")
 
-@router.put("/{record_id}", response_model=MedicalRecord)
-def update_record(
-    record_id: int,
-    record: MedicalRecordUpdate,
-    db: Session = Depends(get_db)
-):
+@router.put("/blockchain/record/{record_id}")
+def update_record(record_id: int, data: BlockchainRecord):
     try:
-        return update_medical_record(db, record_id, record)
-    except HTTPException:
-        raise
+        tx_hash = blockchain_crud.update_record(record_id, data.data_hash)
+        return {"status": "updated", "tx_hash": tx_hash}
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
 
-@router.delete("/{record_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_record(
-    record_id: int,
-    db: Session = Depends(get_db)
-):
+@router.delete("/blockchain/record/{record_id}")
+def delete_record(record_id: int):
     try:
-        delete_medical_record(db, record_id)
-    except HTTPException:
-        raise
+        tx_hash = blockchain_crud.delete_record(record_id)
+        return {"status": "deleted", "tx_hash": tx_hash}
     except Exception as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e))
