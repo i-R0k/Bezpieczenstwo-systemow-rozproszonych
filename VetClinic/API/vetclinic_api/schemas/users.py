@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr, field_validator, ConfigDict
-from typing import Union, Optional, Literal
+from typing import Union, Optional
 from vetclinic_api.validators import (
     validate_letters,
     validate_email,
@@ -8,21 +8,21 @@ from vetclinic_api.validators import (
     validate_postal_code,
 )
 
-# Schemat bazowy dla użytkowników
+# ---------------------------------------------------------------------
+# Base schemas
+# ---------------------------------------------------------------------
 class UserBase(BaseModel):
     first_name: str
     last_name: str
 
-    @field_validator("first_name")
-    def validate_first_name(cls, value):
-        return validate_letters(value)
-
-    @field_validator("last_name")
-    def validate_last_name(cls, value):
-        return validate_letters(value)
+    @field_validator("first_name", "last_name")
+    def validate_names(cls, v):
+        return validate_letters(v)
 
 
-# Schemat dla klienta
+# ---------------------------------------------------------------------
+# Create schemas
+# ---------------------------------------------------------------------
 class ClientCreate(UserBase):
     password: str
     role: str
@@ -32,15 +32,14 @@ class ClientCreate(UserBase):
     postal_code: str
 
     @field_validator("phone_number")
-    def check_phone_number(cls, value):
-        return validate_phone_number(value)
-    
+    def validate_phone(cls, v):
+        return validate_phone_number(v)
+
     @field_validator("postal_code")
-    def check_postal_code(cls, value):
-        return validate_postal_code(value)
+    def validate_postal(cls, v):
+        return validate_postal_code(v)
 
 
-# Schemat dla lekarza
 class DoctorCreate(UserBase):
     specialization: str
     permit_number: str
@@ -48,34 +47,35 @@ class DoctorCreate(UserBase):
     email: Optional[EmailStr] = None
 
     @field_validator("permit_number")
-    def check_permit_number(cls, value):
-        return validate_permit_number(value)
+    def validate_permit(cls, v):
+        return validate_permit_number(v)
 
 
-# Schemat dla konsultanta
 class ConsultantCreate(UserBase):
     password: Optional[str] = None
     email: EmailStr
     role: str = "consultant"
-    facility_id: int 
+    facility_id: int
     backup_email: EmailStr
 
     @field_validator("email")
-    def validate_consultant_email(cls, value, info):
-        if value is not None:
-            return validate_email(value, role="consultant")
-        return value
+    def validate_consultant_email(cls, v):
+        return validate_email(v, role="consultant")
 
 
 UserCreate = Union[ClientCreate, DoctorCreate, ConsultantCreate]
 
+
+# ---------------------------------------------------------------------
+# Update schema
+# ---------------------------------------------------------------------
 class UserUpdate(BaseModel):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     email: Optional[EmailStr] = None
     password: Optional[str] = None
     role: Optional[str] = None
-    facility_id: Optional[int]      = None
+    facility_id: Optional[int] = None
     backup_email: Optional[EmailStr] = None
     phone_number: Optional[str] = None
     address: Optional[str] = None
@@ -83,47 +83,33 @@ class UserUpdate(BaseModel):
     specialization: Optional[str] = None
     permit_number: Optional[str] = None
 
-    @field_validator("first_name")
-    def validate_first_name(cls, value):
-        if value is not None:
-            return validate_letters(value)
-        return value
-
-    @field_validator("last_name")
-    def validate_last_name(cls, value):
-        if value is not None:
-            return validate_letters(value)
-        return value
+    @field_validator("first_name", "last_name", mode="before")
+    def validate_optional_names(cls, v):
+        return validate_letters(v) if v is not None else v
 
     @field_validator("email")
-    def validate_email_field(cls, value, info):
-        if value is not None:
-            role = info.data.get("role")
-            return validate_email(value, role=role)
-        return value
+    def validate_email_field(cls, v, info):
+        return validate_email(v, role=info.data.get("role")) if v is not None else v
 
     @field_validator("phone_number")
-    def validate_phone(cls, value):
-        if value is not None:
-            return validate_phone_number(value)
-        return value
+    def validate_phone_optional(cls, v):
+        return validate_phone_number(v) if v is not None else v
 
     @field_validator("postal_code")
-    def validate_postal(cls, value):
-        if value is not None:
-            return validate_postal_code(value)
-        return value
+    def validate_postal_optional(cls, v):
+        return validate_postal_code(v) if v is not None else v
 
     @field_validator("permit_number")
-    def validate_permit(cls, value):
-        if value is not None:
-            return validate_permit_number(value)
-        return value
+    def validate_permit_optional(cls, v):
+        return validate_permit_number(v) if v is not None else v
 
-# Alias unii dla aktualizacji użytkownika (dowolna z ról)
+
 UserUpdateUnion = Union[ClientCreate, DoctorCreate, ConsultantCreate, UserUpdate]
 
-# Schemat wyjściowy (dla zwracania danych użytkownika z API)
+
+# ---------------------------------------------------------------------
+# Output schemas
+# ---------------------------------------------------------------------
 class ClientOut(BaseModel):
     id: int
     first_name: str
@@ -146,10 +132,8 @@ class DoctorOut(BaseModel):
     permit_number: str
 
     @field_validator("backup_email", mode="before")
-    def _empty_str_to_none(cls, v):
-        if isinstance(v, str) and not v:
-            return None
-        return v
+    def empty_backup_email_to_none(cls, v):
+        return None if isinstance(v, str) and not v else v
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -164,19 +148,20 @@ class ConsultantOut(BaseModel):
     must_change_password: Optional[bool] = None
 
     @field_validator("backup_email", mode="before")
-    def _empty_str_to_none(cls, v):
-        if isinstance(v, str) and not v:
-            return None
-        return v
+    def empty_backup_email_to_none(cls, v):
+        return None if isinstance(v, str) and not v else v
 
     model_config = ConfigDict(from_attributes=True)
 
 
-# Schemat do logowania użytkownika
+# ---------------------------------------------------------------------
+# Auth schemas
+# ---------------------------------------------------------------------
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
     totp_code: Optional[str] = None
+
 
 class ConfirmTOTP(BaseModel):
     email: EmailStr
