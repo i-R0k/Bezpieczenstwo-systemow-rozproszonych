@@ -16,10 +16,13 @@ def add_blockchain_record(record: BlockchainRecord):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("/blockchain/record/{record_id}")
+@router.get("" \
+"+" \
+"{record_id}")
 def get_blockchain_record(record_id: int):
     try:
-        r_id, data_hash, timestamp = blockchain_crud.get_record(record_id)
+        r_id, data_hash, timestamp, _ = blockchain_crud.get_record(record_id)
+        # (opcjonalnie) sprawdź tu deleted lub r_id != record_id, żeby odrzucić nieistniejące
         return {"id": r_id, "data_hash": data_hash, "timestamp": timestamp}
     except Exception:
         raise HTTPException(status_code=404, detail="Record not found")
