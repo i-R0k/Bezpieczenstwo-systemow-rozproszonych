@@ -7,9 +7,12 @@ from vetclinic_api.crud.animal_crud import get_animal
 from vetclinic_api.models.medical_records import MedicalRecord as MRModel
 from vetclinic_api.schemas.medical_records import MedicalRecordCreate, MedicalRecordUpdate
 from vetclinic_api.crud import blockchain_crud
+from vetclinic_api.core.blockchain import BlockchainProvider
 
 import hashlib
 import json
+
+provider = BlockchainProvider()
 
 def list_medical_records(db: Session, skip: int = 0, limit: int = 100) -> List[MRModel]:
     return db.query(MRModel).offset(skip).limit(limit).all()
@@ -29,6 +32,11 @@ def get_medical_record(db: Session, record_id: int) -> MRModel:
             detail="Medical record not found"
         )
     return rec
+
+def get_records_by_owner(owner: str):
+    contract, _, _ = provider.get()
+    ids = contract.functions.getRecordsByOwner(owner).call()
+    return ids
 
 
 def _compute_hash_and_payload(db_record: MRModel) -> Dict[str, Any]:

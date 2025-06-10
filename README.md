@@ -211,11 +211,11 @@ Projekt został zbudowany w oparciu o Pythonowy stos technologiczny:
 
 ### Tydzień 11: Rozszerzenie funkcjonalności blockchain i integracja z modułem medycznym
 
-- [ ] Rozbudowa smart kontraktu o funkcje wyszukiwania i filtrowania rekordów.
-- [ ] Implementacja mechanizmu hashowania wpisów medycznych przed ich zapisaniem w blockchainie.
-- [ ] Integracja modułu medycznego z blockchainem – zapisanie hashy wpisów medycznych na blockchainie przy ich dodawaniu.
-- [ ] Przeprowadzenie testów integracyjnych między backendem a smart kontraktem.
-- [ ] Aktualizacja dokumentacji API o nowe funkcje związane z blockchainem.
+- ✅  Rozbudowa smart kontraktu o funkcje wyszukiwania i filtrowania rekordów.
+- ✅ Implementacja mechanizmu hashowania wpisów medycznych przed ich zapisaniem w blockchainie.
+- ✅ Integracja modułu medycznego z blockchainem – zapisanie hashy wpisów medycznych na blockchainie przy ich dodawaniu.
+- ✅ Przeprowadzenie testów integracyjnych między backendem a smart kontraktem.
+- ✅ Aktualizacja dokumentacji API o nowe funkcje związane z blockchainem.
 
 ### Tydzień 12: Implementacja modułu finansowego i automatyzacja płatności
 

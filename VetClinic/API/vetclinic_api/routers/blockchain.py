@@ -16,16 +16,46 @@ def add_blockchain_record(record: BlockchainRecord):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.get("" \
-"+" \
-"{record_id}")
+@router.get("/blockchain/record/{record_id}")
 def get_blockchain_record(record_id: int):
     try:
-        r_id, data_hash, timestamp, _ = blockchain_crud.get_record(record_id)
-        # (opcjonalnie) sprawdź tu deleted lub r_id != record_id, żeby odrzucić nieistniejące
-        return {"id": r_id, "data_hash": data_hash, "timestamp": timestamp}
+        r_id, data_hash, timestamp, deleted, owner = blockchain_crud.get_record(record_id)
+        if deleted:
+            raise HTTPException(status_code=404, detail="Record has been deleted")
+        return {
+            "id":        r_id,
+            "data_hash": data_hash,
+            "timestamp": timestamp,
+            "owner":     owner
+        }
+    except HTTPException:
+        # przekazujemy już nasze 404 z komunikatem
+        raise
     except Exception:
+        # np. index out of range, jeżeli kontrakt zwrócił coś innego
         raise HTTPException(status_code=404, detail="Record not found")
+
+@router.get("/blockchain/records-by-owner/{owner_address}")
+def get_records_by_owner(owner_address: str):
+    """
+    Zwraca listę wszystkich ID rekordów zapisanych on-chain przez danego właściciela.
+    """
+    try:
+        ids = blockchain_crud.get_records_by_owner(owner_address)
+        # filtrujemy usunięte, jeśli chcesz:
+        active_ids = []
+        for rec_id in ids:
+            _, _, _, deleted, _ = blockchain_crud.get_record(rec_id)
+            if not deleted:
+                active_ids.append(rec_id)
+
+        return {
+            "owner": owner_address,
+            "record_ids": active_ids
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.put("/blockchain/record/{record_id}")
 def update_record(record_id: int, data: BlockchainRecord):

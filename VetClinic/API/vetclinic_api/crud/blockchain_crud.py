@@ -44,3 +44,11 @@ def delete_record(record_id: int) -> str:
     tx_hash = contract.functions.deleteRecord(record_id).transact({'from': account})
     receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
     return receipt.transactionHash.hex()
+
+
+def get_records_by_owner(owner: str) -> list[int]:
+    """
+    Zwraca listę ID rekordów zapisanych on‐chain przez owner.
+    """
+    contract, _, _ = _provider.get()
+    return contract.functions.getRecordsByOwner(owner).call()
