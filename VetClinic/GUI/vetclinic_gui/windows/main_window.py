@@ -22,6 +22,7 @@ from .Doctor.dashboard import DashboardPage
 from .Doctor.visit import VisitsWindow
 
 from .Client.dashboard import DashboardWindow
+from .Client.invoices import InvoicesWindow
 
 class MainWindow(QMainWindow):
     def __init__(
@@ -75,11 +76,12 @@ class MainWindow(QMainWindow):
             ]
         elif self.user_role == "client":
             pages = [
-                ("Dashboard", DashboardWindow)
+                ("Dashboard", DashboardWindow),
+                ("Płatności", InvoicesWindow)
             ]
 
         # Tworzenie przycisków sidebaru i stron
-        for label, PageClass in pages:
+        for label, page_factory in pages:
             btn = QPushButton(label)
             btn.setCursor(Qt.PointingHandCursor)
             btn.setFlat(True)
@@ -91,14 +93,16 @@ class MainWindow(QMainWindow):
             sidebar.layout().addWidget(btn)
 
             # Instancjonowanie strony z odpowiednimi parametrami
-            if PageClass is VisitsWindow:
-                page = PageClass(self.doctor_id)
-            elif PageClass in (ReceptionistDashboardPage, RegistrationPage):
-                page = PageClass(self.receptionist_id)
-            elif PageClass is DashboardWindow:
-                page = PageClass(self.client_id)
+            if page_factory is VisitsWindow:
+                page = page_factory(self.doctor_id)
+            elif page_factory in (ReceptionistDashboardPage, RegistrationPage):
+                page = page_factory(self.receptionist_id)
+            elif page_factory is DashboardWindow:
+                page = page_factory(self.client_id)
+            elif page_factory is InvoicesWindow:
+                page = page_factory(self.client_id)
             else:
-                page = PageClass()
+                page = page_factory()
 
             idx = self.pages.count()
             self.pages.addWidget(page)

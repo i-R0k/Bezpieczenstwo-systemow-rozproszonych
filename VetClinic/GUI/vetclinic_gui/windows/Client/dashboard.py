@@ -133,16 +133,16 @@ class DashboardWindow(QMainWindow):
 
         # Tabela
         self.med_table = QTableWidget(0, 4)
-        self.med_table.setHorizontalHeaderLabels(["Rozpoznanie", "Leczenie", "Data kontroli", ""])
+        self.med_table.setHorizontalHeaderLabels(["Opis", "Data wizyty", "Status", "Notatki"])
         self.med_table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.med_table.setSelectionMode(QTableWidget.NoSelection)
         self.med_table.setFrameShape(QFrame.NoFrame)
         self.med_table.setShowGrid(False)
         self.med_table.verticalHeader().setVisible(False)
-        self.med_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeToContents)
-        self.med_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+        self.med_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        self.med_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
         self.med_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeToContents)
-        self.med_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.Fixed)
+        self.med_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.Stretch)
         self.med_table.setColumnWidth(3, 20)
         self.med_table.verticalHeader().setSectionResizeMode(QHeaderView.ResizeToContents)
         self.med_table.setStyleSheet("""
@@ -240,72 +240,82 @@ class DashboardWindow(QMainWindow):
         return group
 
     def refresh_data(self):
-        """Pobiera dane dla self.animal_id i odświeża UI."""
+        """Pobiera i wyświetla historię wizyt + opisy medyczne dla self.animal_id."""
 
-        # — Karta medyczna —
+        # 1) Pobierz wszystkie wizyty tego klienta
         try:
-            records = MedicalRecordService.list(self.animal_id) or []
-        except Exception as e:
-            QToolTip.showText(QCursor.pos(), f"Błąd pobierania karty: {e}")
-            records = []
-
-        self.med_table.setRowCount(0)
-        for row, rec in enumerate(records):
-            self.med_table.insertRow(row)
-            self.med_table.setItem(row, 0, QTableWidgetItem(rec.diagnosis or ""))
-            itm = QTableWidgetItem(rec.treatment or "")
-            itm.setTextAlignment(Qt.AlignLeft | Qt.AlignTop)
-            self.med_table.setItem(row, 1, itm)
-            cd = rec.control_date.strftime("%d.%m.%Y") if rec.control_date else ""
-            cd_item = QTableWidgetItem(cd); cd_item.setForeground(QBrush(QColor('#F53838')))
-            self.med_table.setItem(row, 2, cd_item)
-            arrow = QTableWidgetItem("›"); arrow.setTextAlignment(Qt.AlignCenter)
-            arrow.setForeground(QBrush(QColor('#38a2db')))
-            self.med_table.setItem(row, 3, arrow)
-
-        # — Wizyty (do wagi i kalendarza) —
-        try:
-            # Pobierz tylko wizyty tego klienta zamiast wszystkich
-            all_appts = AppointmentService.list_by_owner(self.client_id) or []  # :contentReference[oaicite:5]{index=5}
+            all_appts = AppointmentService.list_by_owner(self.client_id) or []
         except Exception as e:
             QToolTip.showText(QCursor.pos(), f"Błąd pobierania wizyt: {e}")
             all_appts = []
 
-        # Filtrujemy wizyty dla wybranego zwierzaka
-        self.current_appointments = [
-            a for a in all_appts
-            if a.animal_id == self.animal_id
-        ]
+        # 2) Filtrujemy tylko wizyty dla wybranego zwierzaka
+        appts = [a for a in all_appts if a.animal_id == self.animal_id]
+        appts.sort(key=lambda a: a.visit_datetime, reverse=True)
+        self.current_appointments = appts
 
-        # — Wykres wagi —
-        pts = sorted([
-            (int(a.visit_datetime.timestamp() * 1000), a.weight * 1000)
-            for a in self.current_appointments
-            if a.weight is not None
-        ], key=lambda x: x[0])
+        # 3) Wyczyść tabelę
+        self.med_table.setRowCount(0)
 
+        # 4) Wypełnij każdy wiersz
+        for row, appt in enumerate(appts):
+            # pobierz rekordy medyczne dla tej wizyty
+            recs = MedicalRecordService.list_by_appointment(appt.id) or []
+
+            # wybierz opis: najpierw z medical_records, w przeciwnym razie z appointment.reason
+            if recs:
+                desc = " | ".join(r.description for r in recs if r.description)
+            else:
+                desc = appt.reason or ""
+
+            self.med_table.insertRow(row)
+
+            # kolumna 0: Opis
+            item_desc = QTableWidgetItem(desc)
+            item_desc.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+            self.med_table.setItem(row, 0, item_desc)
+
+            # kolumna 1: Data wizyty
+            dt_str = appt.visit_datetime.strftime("%d.%m.%Y, %H:%M")
+            item_dt = QTableWidgetItem(dt_str)
+            item_dt.setTextAlignment(Qt.AlignCenter)
+            item_dt.setForeground(QBrush(QColor('#F53838')))
+            self.med_table.setItem(row, 1, item_dt)
+
+            # kolumna 2: Status / priorytet
+            item_status = QTableWidgetItem(appt.priority or "")
+            item_status.setTextAlignment(Qt.AlignCenter)
+            self.med_table.setItem(row, 2, item_status)
+
+            # kolumna 3: Notatki
+            item_notes = QTableWidgetItem(appt.notes or "")
+            item_notes.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+            self.med_table.setItem(row, 3, item_notes)
+
+        # — Waga zwierzaka —
+        pts = sorted(
+            [(int(a.visit_datetime.timestamp()*1000), a.weight*1000)
+             for a in appts if a.weight is not None],
+            key=lambda x: x[0]
+        )
         if pts:
             self._update_weight_chart(pts)
 
         # — Kalendarz wizyt —
-        # Usuń stare podświetlenia
         for d in self.highlighted_dates:
             self.clinic_calendar.setDateTextFormat(d, QTextCharFormat())
         self.highlighted_dates.clear()
-
-        # Nowe podświetlenia
         days = {
             QDate(a.visit_datetime.date().year,
                   a.visit_datetime.date().month,
                   a.visit_datetime.date().day)
-            for a in self.current_appointments
+            for a in appts
         }
-        fmt = QTextCharFormat(); fmt.setBackground(QBrush(QColor(56, 162, 219, 50)))
+        fmt = QTextCharFormat()
+        fmt.setBackground(QBrush(QColor(56, 162, 219, 50)))
         for d in days:
             self.clinic_calendar.setDateTextFormat(d, fmt)
         self.highlighted_dates = list(days)
-
-        # Odśwież opis wizyty dla zaznaczonej daty
         self._clinic_on_date_changed()
 
     def _update_weight_chart(self, pts):
