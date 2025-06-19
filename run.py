@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import subprocess, sys, signal, time
 from pathlib import Path
 from watchdog.observers import Observer

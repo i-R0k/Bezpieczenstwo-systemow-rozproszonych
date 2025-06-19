@@ -10,3 +10,5 @@ class InvoiceService:
             return [inv for inv in list_invoices(db) if inv.client_id == client_id]
         finally:
             db.close()
+            
+    list_by_owner = list_by_client

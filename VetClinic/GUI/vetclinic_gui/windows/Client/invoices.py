@@ -1,73 +1,160 @@
 from datetime import datetime
+import webbrowser
+
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QTableWidget, QTableWidgetItem,
-    QHeaderView, QGroupBox, QLabel, QSizePolicy
+    QHeaderView, QFrame, QLabel, QSizePolicy,
+    QPushButton, QDialog, QHBoxLayout, QSpacerItem,
+    QToolTip, QGraphicsDropShadowEffect
 )
 from PyQt5.QtGui import QBrush, QColor, QFont
+
 from vetclinic_gui.services.invoice_service import InvoiceService
+from vetclinic_gui.services.payment_service import PaymentService
+from vetclinic_gui.services.clients_service import ClientService
+
+
+class PaymentDialog(QDialog):
+    """Dialog wyboru metody płatności – dane klienta pobierane z ClientService."""
+    def __init__(self, parent, invoice_id: int, client_id: int):
+        super().__init__(parent)
+        self.invoice_id = invoice_id
+        # pobierz dane klienta
+        try:
+            client = ClientService.get(client_id)
+            self.email = client.email
+            self.fullname = f"{client.first_name} {client.last_name}"
+        except Exception as e:
+            QToolTip.showText(self.mapToGlobal(self.pos()),
+                              f"Błąd pobierania danych klienta: {e}")
+            self.email = None
+            self.fullname = None
+
+        self.setWindowTitle("Zapłać fakturę")
+        self.setModal(True)
+        self.setFixedSize(300, 120)
+        self._setup_ui()
+
+    def _setup_ui(self):
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(12)
+
+        lbl = QLabel("Wybierz metodę płatności:")
+        lbl.setFont(QFont("Segoe UI", 11, QFont.Bold))
+        layout.addWidget(lbl)
+
+        btn_layout = QHBoxLayout()
+        btn_stripe = QPushButton("Stripe")
+        btn_payu   = QPushButton("PayU")
+        for btn in (btn_stripe, btn_payu):
+            btn.setCursor(Qt.PointingHandCursor)
+            btn.setStyleSheet(
+                "QPushButton { background-color: #38a2db; color: white; "
+                "border: none; border-radius: 6px; padding: 6px 12px; }"
+                "QPushButton:hover { background-color: #2e8ac7; }"
+            )
+        btn_stripe.clicked.connect(self._pay_stripe)
+        btn_payu.clicked.connect(self._pay_payu)
+
+        btn_layout.addWidget(btn_stripe)
+        btn_layout.addWidget(btn_payu)
+        btn_layout.addSpacerItem(QSpacerItem(20, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
+        layout.addLayout(btn_layout)
+
+    def _pay_stripe(self):
+        try:
+            url = PaymentService.stripe_checkout(self.invoice_id)
+            webbrowser.open(url)
+            self.accept()
+        except Exception as e:
+            QToolTip.showText(self.mapToGlobal(self.pos()), f"Błąd Stripe: {e}")
+
+    def _pay_payu(self):
+        if not (self.email and self.fullname):
+            QToolTip.showText(self.mapToGlobal(self.pos()),
+                              "Brak danych klienta – nie można zainicjować PayU")
+            return
+        try:
+            url = PaymentService.payu_checkout(self.invoice_id, self.email, self.fullname)
+            webbrowser.open(url)
+            self.accept()
+        except Exception as e:
+            QToolTip.showText(self.mapToGlobal(self.pos()), f"Błąd PayU: {e}")
+
 
 class InvoicesWindow(QWidget):
     def __init__(self, client_id: int):
         super().__init__()
         self.client_id = client_id
         self.setWindowTitle("Faktury klienta")
-        self.resize(800, 600)
+        self.resize(820, 600)
+        self.setStyleSheet("background-color: #f5f6fa;")
         self._setup_ui()
         self._load_invoices()
 
     def _setup_ui(self):
         root = QVBoxLayout(self)
-        root.setContentsMargins(12, 12, 12, 12)
-        root.setSpacing(8)
+        root.setContentsMargins(20, 20, 20, 20)
+        root.setSpacing(0)
 
-        # Tytuł sekcji
-        title = QLabel("Lista faktur")
-        title.setFont(QFont("Arial", 14, QFont.Bold))
-        root.addWidget(title)
+        # Card container for title and table
+        card = QFrame()
+        card.setStyleSheet(
+            "QFrame { background-color: white; border-radius: 12px; }"
+        )
+        shadow = QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(24)
+        shadow.setColor(QColor(0, 0, 0, 40))
+        shadow.setOffset(0, 0)
+        card.setGraphicsEffect(shadow)
 
-        # Grupa z tabelą
-        box = QGroupBox()
-        box_layout = QVBoxLayout(box)
-        box_layout.setContentsMargins(0, 0, 0, 0)
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(16, 16, 16, 16)
+        card_layout.setSpacing(12)
 
-        self.table = QTableWidget(0, 4)
+        # Header inside card
+        header = QLabel("Lista faktur")
+        header.setFont(QFont("Segoe UI", 16, QFont.Bold))
+        header.setStyleSheet("color: #333;")
+        card_layout.addWidget(header)
+
+        # Table
+        self.table = QTableWidget(0, 5)
         self.table.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.table.setAlternatingRowColors(True)
-        self.table.setStyleSheet("""
-            QTableWidget {
-                background-color: white;
-                gridline-color: #e0e0e0;
-            }
-            QHeaderView::section {
-                background-color: #f7f7f7;
-                padding: 6px;
-                border-bottom: 1px solid #dcdcdc;
-                font-weight: bold;
-            }
-        """)
-
-        headers = ["ID", "Data wystawienia", "Kwota", "Status"]
+        self.table.setStyleSheet(
+            "QTableWidget { background-color: white; border: none; }"
+            "QHeaderView::section { background-color: #ececec; color: #555; "
+            "font: bold 12px 'Segoe UI'; padding: 8px; }"
+            "QTableWidget::item { padding: 8px; }"
+        )
+        headers = ["ID", "Data wystawienia", "Kwota", "Status", "Akcja"]
         self.table.setHorizontalHeaderLabels(headers)
 
         hdr = self.table.horizontalHeader()
+        # ID kolumna dopasowana do zawartości, pozostałe równo rozciągnięte
         hdr.setSectionResizeMode(0, QHeaderView.ResizeToContents)
-        hdr.setSectionResizeMode(1, QHeaderView.Stretch)
-        hdr.setSectionResizeMode(2, QHeaderView.ResizeToContents)
-        hdr.setSectionResizeMode(3, QHeaderView.ResizeToContents)
-        self.table.verticalHeader().setDefaultSectionSize(24)
-        self.table.verticalHeader().setVisible(False)
+        for col in range(1, self.table.columnCount()):
+            hdr.setSectionResizeMode(col, QHeaderView.Stretch)
+
+        # **Nowość**: wyższe wiersze
+        vh = self.table.verticalHeader()
+        vh.setDefaultSectionSize(50)
+        vh.setVisible(False)
+
         self.table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.table.setSelectionBehavior(QTableWidget.SelectRows)
+        card_layout.addWidget(self.table)
 
-        box_layout.addWidget(self.table)
-        root.addWidget(box)
-
-        # Etykieta gdy brak faktur
+        # Empty state inside card
         self.empty_label = QLabel("Brak faktur do wyświetlenia.")
         self.empty_label.setAlignment(Qt.AlignCenter)
-        self.empty_label.setStyleSheet("color: #888; font-style: italic;")
-        root.addWidget(self.empty_label)
+        self.empty_label.setStyleSheet("color: #888; font-style: italic; padding: 32px;")
+        card_layout.addWidget(self.empty_label)
+
+        root.addWidget(card)
 
     def _load_invoices(self):
         try:
@@ -75,7 +162,10 @@ class InvoicesWindow(QWidget):
         except Exception:
             invoices = []
 
-        invoices.sort(key=lambda inv: getattr(inv, "created_at", datetime.min), reverse=True)
+        invoices.sort(
+            key=lambda inv: getattr(inv, "created_at", datetime.min),
+            reverse=True
+        )
         self.table.setRowCount(0)
 
         if not invoices:
@@ -86,17 +176,18 @@ class InvoicesWindow(QWidget):
         self.empty_label.hide()
         self.table.show()
 
-        for row, inv in enumerate(invoices):
+        for inv in invoices:
+            row = self.table.rowCount()
             self.table.insertRow(row)
 
             # ID
-            id_val = getattr(inv, "id", "")
-            id_item = QTableWidgetItem(str(id_val))
+            id_item = QTableWidgetItem(str(inv.id))
             id_item.setTextAlignment(Qt.AlignCenter)
             self.table.setItem(row, 0, id_item)
 
             # Data wystawienia
             raw = getattr(inv, "created_at", "")
+            dt = None
             if isinstance(raw, str):
                 try:
                     dt = datetime.fromisoformat(raw)
@@ -104,28 +195,37 @@ class InvoicesWindow(QWidget):
                     dt = None
             else:
                 dt = raw
-            if dt:
-                date_str = dt.strftime("%d.%m.%Y")
-            else:
-                date_str = ""
+            date_str = dt.strftime("%d.%m.%Y") if dt else ""
             date_item = QTableWidgetItem(date_str)
             date_item.setTextAlignment(Qt.AlignCenter)
             date_item.setForeground(QBrush(QColor('#d32f2f')))
             self.table.setItem(row, 1, date_item)
 
             # Kwota
-            amt_raw = getattr(inv, "amount", "")
+            raw_amt = getattr(inv, "amount", "")
             try:
-                amt = float(amt_raw)
+                amt = float(raw_amt)
                 amt_str = f"{amt:,.2f} PLN"
             except:
-                amt_str = str(amt_raw)
+                amt_str = str(raw_amt)
             amt_item = QTableWidgetItem(amt_str)
             amt_item.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
             self.table.setItem(row, 2, amt_item)
 
             # Status
-            status = getattr(inv, "status", "")
-            status_item = QTableWidgetItem(status.capitalize())
+            status_item = QTableWidgetItem(str(inv.status).capitalize())
             status_item.setTextAlignment(Qt.AlignCenter)
             self.table.setItem(row, 3, status_item)
+
+            # Akcja: stylowany przycisk Zapłać
+            pay_btn = QPushButton("Zapłać")
+            pay_btn.setCursor(Qt.PointingHandCursor)
+            pay_btn.setStyleSheet(
+                "QPushButton { background-color: #38a2db; color: white; border: none; "
+                "border-radius: 6px; padding: 6px 16px; }"
+                "QPushButton:hover { background-color: #2e8ac7; }"
+            )
+            pay_btn.clicked.connect(
+                lambda _, iid=inv.id: PaymentDialog(self, iid, self.client_id).exec_()
+            )
+            self.table.setCellWidget(row, 4, pay_btn)
