@@ -22,6 +22,7 @@ def create_doctor(db: Session, doc_in: DoctorCreate) -> tuple[str, Doctor]:
         specialization       = doc_in.specialization,
         permit_number        = doc_in.permit_number,
         backup_email         = doc_in.backup_email,
+        facility_id          = doc_in.facility_id,       # ← dorzucone
         must_change_password = True,
     )
     db.add(doctor)
@@ -31,7 +32,6 @@ def create_doctor(db: Session, doc_in: DoctorCreate) -> tuple[str, Doctor]:
     EmailService.send_temporary_password(doctor.backup_email, raw_password)
     return raw_password, doctor
 
-
 def list_doctors(db: Session) -> list[Doctor]:
     return db.query(Doctor).all()
 
@@ -39,33 +39,32 @@ def get_doctor(db: Session, doctor_id: int) -> Doctor | None:
     return db.get(Doctor, doctor_id)
 
 def update_doctor(db: Session, doctor_id: int, data_in: UserUpdate) -> Doctor | None:
-    """
-    Aktualizuje lekarza. Jeżeli podano nowe 'password', to:
-      - hashujemy je,
-      - ustawiamy must_change_password=True.
-    Aktualizujemy też backup_email, specialization i permit_number.
-    """
     doctor = get_doctor(db, doctor_id)
     if not doctor:
         return None
 
     data = data_in.model_dump(exclude_unset=True)
+
+    # hasło
     if "password" in data:
         raw_pw = data.pop("password")
-        doctor.password_hash = get_password_hash(raw_pw)
+        doctor.password_hash        = get_password_hash(raw_pw)
         doctor.must_change_password = True
 
+    # backup_email, specialization, permit_number
     if "backup_email" in data:
         doctor.backup_email = data["backup_email"]
-
     if "specialization" in data:
         doctor.specialization = data["specialization"]
-
     if "permit_number" in data:
         doctor.permit_number = data["permit_number"]
 
-    # możesz też zaktualizować email, first_name, last_name...
-    for attr in ("first_name","last_name","email"):
+    # nowa kolumna: facility_id
+    if "facility_id" in data:
+        doctor.facility_id = data["facility_id"]
+
+    # inne pola (first_name, last_name, email)
+    for attr in ("first_name", "last_name", "email"):
         if attr in data:
             setattr(doctor, attr, data[attr])
 

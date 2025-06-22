@@ -13,6 +13,7 @@ import sys
 from vetclinic_gui.services.animals_service       import AnimalService
 from vetclinic_gui.services.appointments_service  import AppointmentService
 from vetclinic_gui.services.clients_service       import ClientService
+from vetclinic_gui.services.doctors_service       import DoctorService
 
 
 class VisitsWindow(QWidget):
@@ -21,6 +22,22 @@ class VisitsWindow(QWidget):
     def __init__(self, doctor_id: int):
         super().__init__()
         self.doctor_id = doctor_id
+
+        # Pobierz lekarza i facility_id
+        doc = DoctorService.get(doctor_id)
+        self.facility_id = getattr(doc, "facility_id", None)
+
+        # Jeżeli brakuje facility_id, zablokuj zapis i wyświetl błąd
+        if not isinstance(self.facility_id, int):
+            QMessageBox.critical(
+                self, "Błąd konfiguracyjny",
+                "Nie udało się odczytać placówki lekarza (facility_id).\n"
+                "Upewnij się, że backend zwraca to pole."
+            )
+            # Nie zezwalamy na zapis wizyty
+            self.can_save = False
+        else:
+            self.can_save = True
 
         # Miejsce na wszystkie rekordy pobrane z API:
         self.clients = []
@@ -121,6 +138,12 @@ class VisitsWindow(QWidget):
         self.gender_visit_cb = QComboBox()
         self.gender_visit_cb.addItems(["samiec", "samica", "nieznana"])
 
+        self.fee_sb = QDoubleSpinBox()
+        self.fee_sb.setRange(0, 100000)
+        self.fee_sb.setDecimals(2)
+        self.fee_sb.setSuffix(" PLN")
+        self.fee_sb.setSingleStep(1.0)
+
         self.reason_te    = QTextEdit()
         self.reason_te.setFixedHeight(60)
 
@@ -185,6 +208,8 @@ class VisitsWindow(QWidget):
         form_layout.addRow("Płeć:",        self.gender_visit_cb)
         form_layout.addRow("Powód wizyty:",self.reason_te)
         form_layout.addRow("Leczenie:",    self.treatment_te)
+        form_layout.addRow("Opłata (PLN):",  self.fee_sb)
+
         form_vbox.addLayout(form_layout)
 
         # --- Sekcja: Dane zwierzęcia ---
@@ -462,6 +487,10 @@ class VisitsWindow(QWidget):
                 self.prev_table.setItem(row_index, col, item)
 
     def _on_save_visit(self):
+        if not self.can_save:
+            QMessageBox.critical(self, "Błąd", "Nie można zapisać wizyty bez facility_id.")
+            return
+
         # 1) Zaktualizuj dane zwierzęcia
         aid = self.animal_cb.currentData()
         AnimalService.update(aid, {
@@ -470,21 +499,18 @@ class VisitsWindow(QWidget):
             "gender": self.gender_visit_cb.currentText()
         })
 
-        # 2) Przygotuj payload z UI
-        doctor_id = self.doctor_id
-        if doctor_id is None:
-            QMessageBox.critical(self, "Błąd", "Nieznany identyfikator lekarza!")
-            return
-
+        # 2) Przygotuj payload
         payload = {
-            "doctor_id":      doctor_id,
+            "doctor_id":      self.doctor_id,
             "animal_id":      aid,
             "owner_id":       self.client_cb.currentData(),
+            "facility_id":    self.facility_id,            # już zawsze int
             "visit_datetime": self.datetime_edit.dateTime().toString(Qt.ISODate),
             "reason":         self.reason_te.toPlainText(),
             "treatment":      self.treatment_te.toPlainText(),
             "priority":       self.priority_cb.currentText(),
-            "weight":         self.weight_visit_sb.value()
+            "weight":         self.weight_visit_sb.value(),
+            "fee":            self.fee_sb.value()
         }
 
         try:

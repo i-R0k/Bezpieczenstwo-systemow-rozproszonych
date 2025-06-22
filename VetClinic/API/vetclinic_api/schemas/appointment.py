@@ -20,6 +20,11 @@ class AppointmentBase(BaseModel):
         None, description="Waga zwierzęcia w dniu wizyty (kg)"
     )
 
+    # <-- NOWE POLE: opłata za wizytę
+    fee: float = Field(
+        ..., description="Opłata za wizytę (PLN)"
+    )
+
     doctor_id: int = Field(
         ..., description="ID lekarza obsługującego wizytę"
     )
@@ -61,6 +66,12 @@ class AppointmentUpdate(BaseModel):
     weight: Optional[float] = Field(
         None, description="Waga zwierzęcia w dniu wizyty (kg)"
     )
+
+    # <-- NOWE POLE: opłata (opcjonalnie przy aktualizacji)
+    fee: Optional[float] = Field(
+        None, description="Opłata za wizytę (PLN)"
+    )
+
     doctor_id: Optional[int] = Field(
         None, description="ID lekarza obsługującego wizytę"
     )

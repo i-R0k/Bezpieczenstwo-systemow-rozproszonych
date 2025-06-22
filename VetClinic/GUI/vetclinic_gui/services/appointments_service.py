@@ -1,51 +1,70 @@
 from vetclinic_gui.services.db import SessionLocal
 from vetclinic_api.crud.appointments_crud import (
-    get_appointments, get_appointment,
+    get_appointments as crud_get_appointments,
+    get_appointments_by_owner as crud_get_appointments_by_owner,
+    get_appointment as crud_get_appointment,
     create_appointment as crud_create_appointment,
     update_appointment as crud_update_appointment,
     delete_appointment as crud_delete_appointment,
-    get_appointments_by_owner as get_appointments_by_owner
 )
 from vetclinic_api.schemas.appointment import AppointmentCreate, AppointmentUpdate
 from vetclinic_api.models.appointments import Appointment as AppointmentModel
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from datetime import datetime, date, time, timedelta
 from typing import List
 
+
 class AppointmentService:
-    """
-    Serwis CRUD dla zasobu wizyt, korzystający z funkcji w app.crud.appointment_crud.
-    Dodatkowo metoda get_free_slots, która zwraca wolne sloty co 15 minut
-    w godzinach 08:00–18:45 dla danego lekarza i daty (pon–sob).
-    """
     @staticmethod
-    def list():
-        db = SessionLocal()
+    def list() -> List[AppointmentModel]:
+        """
+        Zwraca wszystkie wizyty wraz z załadowanym doktorem.
+        """
+        db: Session = SessionLocal()
         try:
-            return get_appointments(db)
+            return (
+                db.query(AppointmentModel)
+                  .options(selectinload(AppointmentModel.doctor))
+                  .all()
+            )
         finally:
             db.close()
 
     @staticmethod
-    def get(appointment_id: int):
-        db = SessionLocal()
+    def get(appointment_id: int) -> AppointmentModel:
+        """
+        Zwraca wizytę o danym ID wraz z obiektem doctor.
+        """
+        db: Session = SessionLocal()
         try:
-            return get_appointment(db, appointment_id)
+            return (
+                db.query(AppointmentModel)
+                  .options(selectinload(AppointmentModel.doctor))
+                  .filter(AppointmentModel.id == appointment_id)
+                  .one_or_none()
+            )
         finally:
             db.close()
 
     @staticmethod
-    def create(data: dict):
-        db = SessionLocal()
+    def create(data: dict) -> AppointmentModel:
+        """
+        Tworzy nową wizytę na podstawie danych i zwraca ją.
+        """
+        db: Session = SessionLocal()
         try:
             appt_in = AppointmentCreate(**data)
-            return crud_create_appointment(db, appt_in)
+            appt = crud_create_appointment(db, appt_in)
+            return appt
         finally:
             db.close()
 
     @staticmethod
-    def update(appointment_id: int, data: dict):
-        db = SessionLocal()
+    def update(appointment_id: int, data: dict) -> AppointmentModel:
+        """
+        Aktualizuje wizytę o podanym ID i zwraca ją.
+        """
+        db: Session = SessionLocal()
         try:
             appt_in = AppointmentUpdate(**data)
             return crud_update_appointment(db, appointment_id, appt_in)
@@ -53,72 +72,73 @@ class AppointmentService:
             db.close()
 
     @staticmethod
-    def delete(appointment_id: int):
-        db = SessionLocal()
+    def delete(appointment_id: int) -> None:
+        """
+        Usuwa wizytę o podanym ID.
+        """
+        db: Session = SessionLocal()
         try:
-            return crud_delete_appointment(db, appointment_id)
+            crud_delete_appointment(db, appointment_id)
         finally:
             db.close()
-    
+
     @staticmethod
-    def list_by_owner(owner_id: int):
+    def list_by_owner(owner_id: int) -> List[AppointmentModel]:
         """
-        Zwraca listę wszystkich wizyt (Appointment) dla danego klienta (owner_id).
+        Zwraca wszystkie wizyty klienta wraz z załadowanym obiektem doctor.
         """
-        db = SessionLocal()
+        db: Session = SessionLocal()
         try:
-            return get_appointments_by_owner(db, owner_id)
+            return (
+                db.query(AppointmentModel)
+                  .options(selectinload(AppointmentModel.doctor))
+                  .filter(AppointmentModel.owner_id == owner_id)
+                  .all()
+            )
         finally:
             db.close()
 
     @staticmethod
     def get_free_slots(doctor_id: int, date_str: str) -> List[str]:
         """
-        Zwraca listę wolnych kwadransowych slotów ("HH:MM") od 08:00 do 18:45
-        dla lekarza o podanym doctor_id w dniu date_str ("YYYY-MM-DD").
-        Jeśli date_str to niedziela, zwraca pustą listę.
+        Zwraca wolne sloty co 15 minut (08:00–18:45) dla lekarza w danym dniu.
         """
-        # Parsujemy date_str na date
+        # Parsowanie daty
         try:
-            target_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+            target_date: date = datetime.strptime(date_str, "%Y-%m-%d").date()
         except ValueError:
             return []
 
-        # Jeśli to niedziela (weekday == 6), lekarz nie przyjmuje
+        # Niedziela – brak pracy
         if target_date.weekday() == 6:
             return []
 
         db: Session = SessionLocal()
         try:
-            # Ustalamy początek i koniec dnia
-            start_of_day = datetime.combine(target_date, time(hour=0, minute=0, second=0))
-            end_of_day = datetime.combine(target_date, time(hour=23, minute=59, second=59))
+            start_of_day = datetime.combine(target_date, time(0, 0))
+            end_of_day = datetime.combine(target_date, time(23, 59, 59))
 
-            # Pobieramy wszystkie wizyty tego lekarza w wybranym dniu
             apps = (
                 db.query(AppointmentModel)
                   .filter(
                       AppointmentModel.doctor_id == doctor_id,
                       AppointmentModel.visit_datetime >= start_of_day,
-                      AppointmentModel.visit_datetime <= end_of_day
+                      AppointmentModel.visit_datetime <= end_of_day,
                   )
                   .all()
             )
 
-            # Wyciągamy zestaw zajętych kwadransów "HH:MM"
-            busy_slots = { app.visit_datetime.strftime("%H:%M") for app in apps }
+            busy_slots = {app.visit_datetime.strftime("%H:%M") for app in apps}
 
-            # Generujemy wszystkie możliwe kwadransy od 08:00 do 18:45
-            all_slots = []
-            current = datetime.combine(target_date, time(hour=8, minute=0))
-            end_slot = datetime.combine(target_date, time(hour=18, minute=45))
-            while current <= end_slot:
-                all_slots.append(current.strftime("%H:%M"))
-                current += timedelta(minutes=15)
+            free_slots: List[str] = []
+            current_dt = datetime.combine(target_date, time(8, 0))
+            end_slot = datetime.combine(target_date, time(18, 45))
+            while current_dt <= end_slot:
+                slot = current_dt.strftime("%H:%M")
+                if slot not in busy_slots:
+                    free_slots.append(slot)
+                current_dt += timedelta(minutes=15)
 
-            # Filtrujemy sloty, które nie są w busy_slots
-            free_slots = [slot for slot in all_slots if slot not in busy_slots]
             return free_slots
         finally:
             db.close()
-            

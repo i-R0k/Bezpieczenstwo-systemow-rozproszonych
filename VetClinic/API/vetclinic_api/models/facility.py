@@ -17,4 +17,4 @@ class Facility(Base):
 
     appointments = relationship("Appointment", back_populates="facility")
     consultants = relationship("Consultant", back_populates="facility")
-
+    doctors     = relationship("Doctor", back_populates="facility")

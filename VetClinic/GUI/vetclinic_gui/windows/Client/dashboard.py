@@ -65,7 +65,11 @@ class DashboardWindow(QMainWindow):
         # Dolne panele: wykres wagi + kalendarz wizyt
         bottom = QHBoxLayout()
         bottom.setSpacing(15)
-        bottom.addWidget(self._create_weight_chart(), 1)
+
+        # Tworzymy i zapisujemy grupę wykresu wagi
+        self.weight_group = self._create_weight_chart()
+        bottom.addWidget(self.weight_group, 1)
+
         bottom.addWidget(self._create_clinic_visits(), 1)
         content_layout.addLayout(bottom, 1)
 
@@ -166,7 +170,6 @@ class DashboardWindow(QMainWindow):
         group.setStyleSheet(self._groupbox_css())
         layout = QVBoxLayout(group)
 
-        # Pusty QChart – dane wstawi _update_weight_chart
         chart = QChart()
         chart.setBackgroundVisible(False)
         chart.legend().hide()
@@ -176,8 +179,8 @@ class DashboardWindow(QMainWindow):
         area = QAreaSeries(top, base)
         grad = QLinearGradient(0, 0, 0, 1)
         grad.setCoordinateMode(QGradient.ObjectBoundingMode)
-        grad.setColorAt(0.0, QColor(56,162,219,120))
-        grad.setColorAt(1.0, QColor(56,162,219,20))
+        grad.setColorAt(0.0, QColor(56, 162, 219, 120))
+        grad.setColorAt(1.0, QColor(56, 162, 219, 20))
         area.setBrush(QBrush(grad))
         area.setPen(QPen(Qt.NoPen))
 
@@ -192,10 +195,11 @@ class DashboardWindow(QMainWindow):
         axisY = QValueAxis()
         axisY.setTitleText("Waga [g]")
 
-        for s in (area, top, scatter):
-            chart.addSeries(s)
-            s.attachAxis(axisX)
-            s.attachAxis(axisY)
+        # Dodajemy serie tylko raz
+        for series in (area, top, scatter):
+            chart.addSeries(series)
+            series.attachAxis(axisX)
+            series.attachAxis(axisY)
 
         chart.addAxis(axisX, Qt.AlignBottom)
         chart.addAxis(axisY, Qt.AlignLeft)
@@ -319,8 +323,8 @@ class DashboardWindow(QMainWindow):
         self._clinic_on_date_changed()
 
     def _update_weight_chart(self, pts):
-        """Aktualizuje QChart we właściwościach self._create_weight_chart()."""
-        # Funkcja Catmull-Rom do wygładzania
+        """Aktualizuje QChart zapisany w self.weight_group."""
+        # Catmull–Rom smoothing
         def catmull_rom(points, samples=20):
             def CR(p0, p1, p2, p3, t):
                 a = 2*p1[1]
@@ -349,67 +353,41 @@ class DashboardWindow(QMainWindow):
             dense.append(points[-1])
             return dense
 
-        # Przygotuj punkty gęste i surowe
         raw = pts
         dense = catmull_rom(raw)
         weights = [w for _, w in raw]
         mn, mx = min(weights), max(weights)
-        dy = (mx - mn) * 0.1 if mx != mn else mx*0.1
+        dy = (mx - mn) * 0.1 if mx != mn else mx * 0.1
         y_max = mx + dy
 
-        # Wyczyść stare serie
-        chart   = self._create_weight_chart.__self__._chart
-        top     = self._create_weight_chart.__self__._top
-        base    = self._create_weight_chart.__self__._base
-        area    = self._create_weight_chart.__self__._area
-        scatter = self._create_weight_chart.__self__._scatter
-        axisX   = self._create_weight_chart.__self__._axisX
-        axisY   = self._create_weight_chart.__self__._axisY
+        # Pobieramy referencje
+        chart   = self.weight_group._chart
+        top     = self.weight_group._top
+        base    = self.weight_group._base
+        scatter = self.weight_group._scatter
+        axisY   = self.weight_group._axisY
 
-        top.clear(); base.clear(); scatter.clear()
-        chart.removeAllSeries()
+        # Czyścimy dane w istniejących seriach
+        top.clear()
+        base.clear()
+        scatter.clear()
 
-        # Nowe serie
+        # Uzupełniamy gładką krzywą i podstawę
         for x, y in dense:
             top.append(x, y)
             base.append(x, 0)
-
         pen = QPen(QColor("#38A2DB"))
         pen.setWidth(2)
         top.setPen(pen)
 
-        new_area = QAreaSeries(top, base)
-        grad = QLinearGradient(0, 0, 0, 1)
-        grad.setCoordinateMode(QGradient.ObjectBoundingMode)
-        grad.setColorAt(0.0, QColor(56,162,219,120))
-        grad.setColorAt(1.0, QColor(56,162,219,20))
-        new_area.setBrush(QBrush(grad))
-        new_area.setPen(QPen(Qt.NoPen))
-
-        new_scatter = QScatterSeries()
-        new_scatter.setMarkerSize(6)
-        new_scatter.setColor(QColor("#38A2DB"))
-        new_scatter.setBorderColor(QColor("#ffffff"))
+        # Dodajemy punkty surowe
         for x, y in raw:
-            new_scatter.append(x, y)
+            scatter.append(x, y)
 
-        # ToolTip
-        def show_tt(pt, state):
-            if state:
-                dt = QDateTime.fromMSecsSinceEpoch(int(pt.x())).date().toString("dd.MM.yyyy")
-                QToolTip.showText(QCursor.pos(), f"{dt}: {int(pt.y())} g")
-        new_scatter.hovered.connect(show_tt)
-
-        # Dodajemy serie
-        for series in (new_area, top, new_scatter):
-            chart.addSeries(series)
-            series.attachAxis(axisX)
-            series.attachAxis(axisY)
-
+        # Aktualizujemy zakres osi Y i odświeżamy widok
         axisY.setRange(0, y_max)
-        chart.addAxis(axisX, Qt.AlignBottom)
-        chart.addAxis(axisY, Qt.AlignLeft)
-        self._create_weight_chart.__self__._view.repaint()
+        self.weight_group._view.repaint()
+
 
     def _clinic_on_date_changed(self):
         sel = self.clinic_calendar.selectedDate().toPyDate()

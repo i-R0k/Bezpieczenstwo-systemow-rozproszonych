@@ -46,6 +46,7 @@ class DoctorCreate(UserBase):
     permit_number: str
     backup_email: EmailStr
     email: Optional[EmailStr] = None
+    facility_id: int 
 
     @field_validator("permit_number")
     def check_permit_number(cls, value):
@@ -136,6 +137,7 @@ class DoctorOut(BaseModel):
     backup_email: Optional[EmailStr] = None
     specialization: str
     permit_number: str
+    facility_id: int   
 
     @field_validator("backup_email", mode="before")
     def _empty_str_to_none(cls, v):

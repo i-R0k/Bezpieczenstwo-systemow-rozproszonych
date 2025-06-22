@@ -49,7 +49,9 @@ class Doctor(Base):
     totp_confirmed = Column(Boolean, default=False)
     failed_login_attempts = Column(Integer, default=0, nullable=False)
     locked_until = Column(DateTime, nullable=True)
-
+    facility_id = Column(Integer, ForeignKey("facilities.id"), nullable=False)
+    
+    facility = relationship("Facility", back_populates="doctors")
     appointments = relationship("Appointment", back_populates="doctor")
     
 
