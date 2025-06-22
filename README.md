@@ -190,7 +190,6 @@ Projekt został zbudowany w oparciu o Pythonowy stos technologiczny:
 
 * ✅ Przeprowadzenie testów penetracyjnych (przy użyciu narzędzi OWASP ZAP lub podobnych).
 * ✅ Usprawnienie konfiguracji FastAPI pod kątem wydajności i bezpieczeństwa.
-
 * ✅ Dokumentacja wdrożonych zabezpieczeń oraz przeprowadzonych testów.
 
 ### Tydzień 9: Przygotowanie środowiska blockchain
@@ -219,23 +218,23 @@ Projekt został zbudowany w oparciu o Pythonowy stos technologiczny:
 
 ### Tydzień 12: Implementacja modułu finansowego i automatyzacja płatności
 
-- [ ] Utworzenie podstawowego modułu do wystawiania faktur i rozliczeń (CRUD faktur).
-- [ ] Integracja systemu z testowym API płatności (np. Stripe, PayU).
-- [ ] Analiza możliwości zastosowania smart kontraktów do automatycznych rozliczeń (np. weryfikacja płatności, rozliczenia za pomocą kontraktów).
-- [ ] Implementacja testów funkcjonalnych dla modułu finansowego.
-- [ ] Dokumentacja procesu wystawiania faktur oraz integracji z systemem płatności.
+- ✅ Utworzenie podstawowego modułu do wystawiania faktur i rozliczeń (CRUD faktur).
+- ✅ Integracja systemu z testowym API płatności (np. Stripe, PayU).
+- ✅ Analiza możliwości zastosowania smart kontraktów do automatycznych rozliczeń (np. weryfikacja płatności, rozliczenia za pomocą kontraktów).
+- ✅ Implementacja testów funkcjonalnych dla modułu finansowego.
+- ✅ Dokumentacja procesu wystawiania faktur oraz integracji z systemem płatności.
 
 ### Tydzień 13: Integracja interfejsu użytkownika z funkcjami blockchain i finansowymi
 
-- [ ] Aktualizacja interfejsu użytkownika, umożliwiająca przeglądanie historii medycznej zapisanej na blockchainie.
-- [ ] Dodanie widoków prezentujących status płatności i historię faktur.
-- [ ] Połączenie funkcjonalności modułów medycznego, finansowego i blockchain w interfejsie użytkownika (np. dashboard z informacjami).
-- [ ] Przeprowadzenie testów integracyjnych między frontendem, backendem i blockchainem.
-- [ ] Zbieranie opinii od użytkowników/testujących i wprowadzanie niezbędnych usprawnień.
+- ✅ Aktualizacja interfejsu użytkownika, umożliwiająca przeglądanie historii medycznej zapisanej na blockchainie.
+- ✅ Dodanie widoków prezentujących status płatności i historię faktur.
+- ✅ Połączenie funkcjonalności modułów medycznego, finansowego i blockchain w interfejsie użytkownika (np. dashboard z informacjami).
+- ✅ Przeprowadzenie testów integracyjnych między frontendem, backendem i blockchainem.
+- ✅ Zbieranie opinii od użytkowników/testujących i wprowadzanie niezbędnych usprawnień.
 
 ### Tydzień 14: Testy systemowe i optymalizacja wydajności
 
-- [ ] Uzupełnienie testów jednostkowych dla wszystkich wcześniej zaimplementowanych modułów, dążąc do minimum 75% pokrycia.
+- [ ] Uzupełnienie testów jednostkowych dla wszystkich wcześniej zaimplementowanych modułów, dążąc do minimum 80% pokrycia.
 - [ ] Przeprowadzenie pełnych testów systemowych – testy integracyjne, obciążeniowe i end-to-end.
 - [ ] Identyfikacja potencjalnych wąskich gardeł oraz optymalizacja zapytań do bazy danych i operacji blockchain.
 - [ ] Przegląd zabezpieczeń i przeprowadzenie dodatkowych testów penetracyjnych.
