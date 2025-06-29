@@ -24,6 +24,7 @@ class Client(Base):
     totp_confirmed = Column(Boolean, default=False)
     failed_login_attempts = Column(Integer, default=0, nullable=False)
     locked_until = Column(DateTime, nullable=True)
+    wallet_address = Column(String, unique=True, nullable=False)
 
     animals = relationship("Animal", back_populates="owner")
     appointments = relationship("Appointment", back_populates="owner")

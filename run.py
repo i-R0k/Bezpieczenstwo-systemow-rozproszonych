@@ -3,7 +3,6 @@ from pathlib import Path
 from watchdog.observers import Observer
 from watchdog.events import PatternMatchingEventHandler
 
-# Ścieżki do katalogów z kodem
 ROOT    = Path(__file__).parent.resolve()
 API_DIR = ROOT / "VetClinic" / "API" / "vetclinic_api"
 GUI_DIR = ROOT / "VetClinic" / "GUI" / "vetclinic_gui"
@@ -12,12 +11,11 @@ procs = []
 
 def start_processes():
     global procs
-    # jeśli już były, upewnij się, że nic nie wisi
     stop_processes()
     print("🚀 Uruchamiam API i GUI…")
     procs = [
         subprocess.Popen(
-            ["uvicorn", "vetclinic_api.main:app"],  # bez --reload, bo restartujemy z poziomu watchera
+            ["uvicorn", "vetclinic_api.main:app"], 
             cwd=str(API_DIR)
         ),
         subprocess.Popen(
@@ -33,7 +31,6 @@ def stop_processes():
             p.terminate()
         except Exception:
             pass
-    # daj chwile na zamknięcie
     time.sleep(0.5)
     procs = []
 
@@ -42,10 +39,8 @@ def on_change(event):
     start_processes()
 
 if __name__ == "__main__":
-    # 1) Start pierwsze uruchomienie
     start_processes()
 
-    # 2) Ustaw watcher na wszystkie .py w API_DIR i GUI_DIR
     handler = PatternMatchingEventHandler(patterns=["*.py"], ignore_directories=True)
     handler.on_modified = on_change
     handler.on_created  = on_change

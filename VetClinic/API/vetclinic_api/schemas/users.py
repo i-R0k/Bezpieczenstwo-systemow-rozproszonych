@@ -30,6 +30,7 @@ class ClientCreate(UserBase):
     phone_number: str
     address: str
     postal_code: str
+    wallet_address: str 
 
     @field_validator("phone_number")
     def check_phone_number(cls, value):
@@ -83,6 +84,7 @@ class UserUpdate(BaseModel):
     postal_code: Optional[str] = None
     specialization: Optional[str] = None
     permit_number: Optional[str] = None
+    wallet_address: Optional[str]  # umożliwiamy zmianę
 
     @field_validator("first_name", "last_name")
     def validate_name_fields(cls, value):

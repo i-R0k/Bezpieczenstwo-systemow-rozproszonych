@@ -22,12 +22,13 @@ from PyQt5.QtChart import (
 from vetclinic_gui.services.medical_records_service import MedicalRecordService
 from vetclinic_gui.services.appointments_service    import AppointmentService
 from vetclinic_gui.services.animals_service         import AnimalService
-
+from vetclinic_gui.services.blockchain_service import BlockchainService
 
 class DashboardWindow(QMainWindow):
     def __init__(self, client_id: int):
         super().__init__()
         self.client_id = client_id
+        self.blockchain = BlockchainService()
 
         # Pobierz wszystkie zwierzęta klienta
         self.animals = AnimalService.list_by_owner(client_id) or []  # :contentReference[oaicite:4]{index=4}
@@ -51,29 +52,26 @@ class DashboardWindow(QMainWindow):
         main_layout = QHBoxLayout(central)
         main_layout.setContentsMargins(0, 0, 0, 0)
 
+        # Panel główny
         content = QWidget()
         content_layout = QVBoxLayout(content)
         content_layout.setContentsMargins(20, 20, 20, 20)
         content_layout.setSpacing(15)
 
-        # Pasek akcji + wybór zwierzaka
         content_layout.addLayout(self._create_top_bar())
-
-        # Karta medyczna
         content_layout.addWidget(self._create_medical_card(), 1)
 
-        # Dolne panele: wykres wagi + kalendarz wizyt
+        # Dolne panele: moduł blockchain + kalendarz wizyt
         bottom = QHBoxLayout()
         bottom.setSpacing(15)
-
-        # Tworzymy i zapisujemy grupę wykresu wagi
-        self.weight_group = self._create_weight_chart()
-        bottom.addWidget(self.weight_group, 1)
-
+        # Zamiast wykresu wagi: moduł blockchain
+        self.bc_group = self._create_blockchain_module()
+        bottom.addWidget(self.bc_group, 1)
         bottom.addWidget(self._create_clinic_visits(), 1)
         content_layout.addLayout(bottom, 1)
 
         main_layout.addWidget(content)
+
 
     def _create_top_bar(self):
         layout = QHBoxLayout()
@@ -165,62 +163,6 @@ class DashboardWindow(QMainWindow):
 
         return group
 
-    def _create_weight_chart(self) -> QGroupBox:
-        group = QGroupBox("Waga zwierzaka")
-        group.setStyleSheet(self._groupbox_css())
-        layout = QVBoxLayout(group)
-
-        chart = QChart()
-        chart.setBackgroundVisible(False)
-        chart.legend().hide()
-
-        top = QLineSeries()
-        base = QLineSeries()
-        area = QAreaSeries(top, base)
-        grad = QLinearGradient(0, 0, 0, 1)
-        grad.setCoordinateMode(QGradient.ObjectBoundingMode)
-        grad.setColorAt(0.0, QColor(56, 162, 219, 120))
-        grad.setColorAt(1.0, QColor(56, 162, 219, 20))
-        area.setBrush(QBrush(grad))
-        area.setPen(QPen(Qt.NoPen))
-
-        scatter = QScatterSeries()
-        scatter.setMarkerSize(6)
-        scatter.setColor(QColor("#38A2DB"))
-        scatter.setBorderColor(QColor("#ffffff"))
-
-        axisX = QDateTimeAxis()
-        axisX.setFormat("dd.MM.yyyy")
-        axisX.setTitleText("Data")
-        axisY = QValueAxis()
-        axisY.setTitleText("Waga [g]")
-
-        # Dodajemy serie tylko raz
-        for series in (area, top, scatter):
-            chart.addSeries(series)
-            series.attachAxis(axisX)
-            series.attachAxis(axisY)
-
-        chart.addAxis(axisX, Qt.AlignBottom)
-        chart.addAxis(axisY, Qt.AlignLeft)
-
-        view = QChartView(chart)
-        view.setRenderHint(QPainter.Antialiasing)
-        view.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        layout.addWidget(view)
-
-        # Referencje do późniejszej aktualizacji
-        group._chart   = chart
-        group._top     = top
-        group._base    = base
-        group._area    = area
-        group._scatter = scatter
-        group._axisX   = axisX
-        group._axisY   = axisY
-        group._view    = view
-
-        return group
-
     def _create_clinic_visits(self) -> QGroupBox:
         group = QGroupBox("Wizyty kliniczne")
         group.setStyleSheet(self._groupbox_css())
@@ -296,15 +238,6 @@ class DashboardWindow(QMainWindow):
             item_notes.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
             self.med_table.setItem(row, 3, item_notes)
 
-        # — Waga zwierzaka —
-        pts = sorted(
-            [(int(a.visit_datetime.timestamp()*1000), a.weight*1000)
-             for a in appts if a.weight is not None],
-            key=lambda x: x[0]
-        )
-        if pts:
-            self._update_weight_chart(pts)
-
         # — Kalendarz wizyt —
         for d in self.highlighted_dates:
             self.clinic_calendar.setDateTextFormat(d, QTextCharFormat())
@@ -321,73 +254,7 @@ class DashboardWindow(QMainWindow):
             self.clinic_calendar.setDateTextFormat(d, fmt)
         self.highlighted_dates = list(days)
         self._clinic_on_date_changed()
-
-    def _update_weight_chart(self, pts):
-        """Aktualizuje QChart zapisany w self.weight_group."""
-        # Catmull–Rom smoothing
-        def catmull_rom(points, samples=20):
-            def CR(p0, p1, p2, p3, t):
-                a = 2*p1[1]
-                b = -p0[1] + p2[1]
-                c = 2*p0[1] - 5*p1[1] + 4*p2[1] - p3[1]
-                d = -p0[1] + 3*p1[1] - 3*p2[1] + p3[1]
-                ax = 2*p1[0]
-                bx = -p0[0] + p2[0]
-                cx = 2*p0[0] - 5*p1[0] + 4*p2[0] - p3[0]
-                dx = -p0[0] + 3*p1[0] - 3*p2[0] + p3[0]
-                t2, t3 = t*t, t*t*t
-                x = 0.5 * (ax + bx*t + cx*t2 + dx*t3)
-                y = 0.5 * (a  + b*t  + c*t2  + d*t3)
-                return x, y
-
-            dense = []
-            n = len(points)
-            if n < 2:
-                return points
-            for i in range(n-1):
-                p0 = points[i-1] if i > 0 else points[i]
-                p1, p2 = points[i], points[i+1]
-                p3 = points[i+2] if i+2 < n else p2
-                for s in range(samples):
-                    dense.append(CR(p0, p1, p2, p3, s/samples))
-            dense.append(points[-1])
-            return dense
-
-        raw = pts
-        dense = catmull_rom(raw)
-        weights = [w for _, w in raw]
-        mn, mx = min(weights), max(weights)
-        dy = (mx - mn) * 0.1 if mx != mn else mx * 0.1
-        y_max = mx + dy
-
-        # Pobieramy referencje
-        chart   = self.weight_group._chart
-        top     = self.weight_group._top
-        base    = self.weight_group._base
-        scatter = self.weight_group._scatter
-        axisY   = self.weight_group._axisY
-
-        # Czyścimy dane w istniejących seriach
-        top.clear()
-        base.clear()
-        scatter.clear()
-
-        # Uzupełniamy gładką krzywą i podstawę
-        for x, y in dense:
-            top.append(x, y)
-            base.append(x, 0)
-        pen = QPen(QColor("#38A2DB"))
-        pen.setWidth(2)
-        top.setPen(pen)
-
-        # Dodajemy punkty surowe
-        for x, y in raw:
-            scatter.append(x, y)
-
-        # Aktualizujemy zakres osi Y i odświeżamy widok
-        axisY.setRange(0, y_max)
-        self.weight_group._view.repaint()
-
+        self._load_blockchain_history()
 
     def _clinic_on_date_changed(self):
         sel = self.clinic_calendar.selectedDate().toPyDate()
@@ -400,6 +267,49 @@ class DashboardWindow(QMainWindow):
         desc = ap.reason or ""
         doc  = f"Dr {ap.doctor.first_name} {ap.doctor.last_name}"
         self.visit_desc_lbl.setText(f"{desc} — {doc}")
+
+    def _create_blockchain_module(self) -> QGroupBox:
+        group = QGroupBox("Historia z blockchaina")
+        group.setStyleSheet(self._groupbox_css())
+        layout = QVBoxLayout(group)
+
+        self.bc_table = QTableWidget(0, 4)
+        self.bc_table.setHorizontalHeaderLabels(["Data", "Lekarz", "Opis", "Tx Hash"])
+        self.bc_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        layout.addWidget(self.bc_table)
+        return group
+
+    def _load_blockchain_history(self):
+        if not self.animals:
+            return
+    
+        # Pobierz wszystkie wizyty klienta, żeby mieć owner_address
+        appts = AppointmentService.list_by_owner(self.client_id) or []
+        if not appts:
+            return
+        owner_addr = appts[0].owner.wallet_address
+    
+        # Spróbuj pobrać historię, ale chroń przed błędem połączenia
+        try:
+            records = self.blockchain.get_medical_history(owner_addr)
+        except ConnectionError as e:
+            # Wyświetl komunikat zamiast crasha
+            QToolTip.showText(QCursor.pos(), f"Blockchain error: {e}")
+            return
+        except Exception as e:
+            QToolTip.showText(QCursor.pos(), f"Nie udało się pobrać historii z blockchaina: {e}")
+            return
+    
+        # Wyczyść tabelę i wypełnij, jeśli mamy records
+        self.bc_table.setRowCount(0)
+        for row, rec in enumerate(records):
+            self.bc_table.insertRow(row)
+            self.bc_table.setItem(row, 0, QTableWidgetItem(rec['date'].strftime("%d.%m.%Y %H:%M")))
+            self.bc_table.setItem(row, 1, QTableWidgetItem(rec['owner']))
+            self.bc_table.setItem(row, 2, QTableWidgetItem(rec['data_hash']))
+            # Jeśli tx_hash jest None, pokaż "-" zamiast pustki
+            tx_hash = rec['tx_hash'] or "-"
+            self.bc_table.setItem(row, 3, QTableWidgetItem(tx_hash))
 
 
 if __name__ == "__main__":
