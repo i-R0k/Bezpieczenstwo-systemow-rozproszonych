@@ -280,35 +280,36 @@ class DashboardWindow(QMainWindow):
         return group
 
     def _load_blockchain_history(self):
+        """
+        Ładuje historię medyczną z blockchainu pod konto serwisowe i wyświetla w tabeli.
+        """
+        # Jeśli brak zwierząt, nic nie rób
         if not self.animals:
             return
-    
-        # Pobierz wszystkie wizyty klienta, żeby mieć owner_address
-        appts = AppointmentService.list_by_owner(self.client_id) or []
-        if not appts:
-            return
-        owner_addr = appts[0].owner.wallet_address
-    
-        # Spróbuj pobrać historię, ale chroń przed błędem połączenia
+
+        # Spróbuj pobrać historię on-chain dla service_account
         try:
-            records = self.blockchain.get_medical_history(owner_addr)
+            records = self.blockchain.get_medical_history()
         except ConnectionError as e:
-            # Wyświetl komunikat zamiast crasha
             QToolTip.showText(QCursor.pos(), f"Blockchain error: {e}")
             return
         except Exception as e:
             QToolTip.showText(QCursor.pos(), f"Nie udało się pobrać historii z blockchaina: {e}")
             return
-    
-        # Wyczyść tabelę i wypełnij, jeśli mamy records
+
+        # Wyczyść tabelę i wypełnij, jeśli mamy rekordy
         self.bc_table.setRowCount(0)
         for row, rec in enumerate(records):
             self.bc_table.insertRow(row)
-            self.bc_table.setItem(row, 0, QTableWidgetItem(rec['date'].strftime("%d.%m.%Y %H:%M")))
+            # Data
+            date_str = rec['date'].strftime("%d.%m.%Y %H:%M")
+            self.bc_table.setItem(row, 0, QTableWidgetItem(date_str))
+            # Lekarz (owner)
             self.bc_table.setItem(row, 1, QTableWidgetItem(rec['owner']))
+            # Hash danych
             self.bc_table.setItem(row, 2, QTableWidgetItem(rec['data_hash']))
-            # Jeśli tx_hash jest None, pokaż "-" zamiast pustki
-            tx_hash = rec['tx_hash'] or "-"
+            # Tx hash (lub "-")
+            tx_hash = rec.get('tx_hash') or "-"
             self.bc_table.setItem(row, 3, QTableWidgetItem(tx_hash))
 
 

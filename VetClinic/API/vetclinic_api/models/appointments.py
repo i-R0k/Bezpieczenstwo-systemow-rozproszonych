@@ -25,7 +25,7 @@ class Appointment(Base):
     created_at     = Column(DateTime(timezone=True), server_default=func.now())
     updated_at     = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     fee            = Column(Float, nullable=True, default=0.0)
-
+    tx_hash        = Column(String, nullable=True, comment="Hash transakcji on‐chain")
 
     doctor          = relationship("Doctor", back_populates="appointments")
     animal          = relationship("Animal", back_populates="appointments")
