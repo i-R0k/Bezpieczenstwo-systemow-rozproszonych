@@ -12,5 +12,9 @@
         "obsługi",
         "użytkownikami",
         "związanych"
-    ]
+    ],
+    "sonarlint.connectedMode.project": {
+        "connectionId": "psk-projekty",
+        "projectKey": "PSK-projekty_Programowanie-Defensywne"
+    }
 }
