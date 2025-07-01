@@ -177,3 +177,9 @@ class UserLogin(BaseModel):
 class ConfirmTOTP(BaseModel):
     email: EmailStr
     totp_code: str
+
+class PasswordReset(BaseModel):
+    email: str
+    old_password: str
+    new_password: str
+    reset_totp: bool = False

@@ -53,6 +53,10 @@ class MainWindow(QMainWindow):
 
         self.pages = QStackedWidget()
 
+        # 1) Zawsze inicjalizujemy pages
+        pages = []
+
+        # 2) Wypełniamy w zależności od roli
         if self.user_role == "admin":
             pages = [
                 ("Ustawienia", AdminSettingsPage),
@@ -77,10 +81,13 @@ class MainWindow(QMainWindow):
         elif self.user_role == "client":
             pages = [
                 ("Dashboard", DashboardWindow),
-                ("Płatności", InvoicesWindow)
+                ("Płatności", InvoicesWindow),
             ]
+        else:
+            # 3) Jeśli trafi tu nieoczekiwana rola, od razu wiadomo dlaczego
+            raise ValueError(f"Nieobsługiwana rola użytkownika: {self.user_role}")
 
-        # Tworzenie przycisków sidebaru i stron
+        # 4) Tworzenie przycisków sidebaru i stron
         for label, page_factory in pages:
             btn = QPushButton(label)
             btn.setCursor(Qt.PointingHandCursor)
@@ -92,7 +99,7 @@ class MainWindow(QMainWindow):
             btn.clicked.connect(lambda _, l=label: self._navigate_to(l))
             sidebar.layout().addWidget(btn)
 
-            # Instancjonowanie strony z odpowiednimi parametrami
+            # instancjonowanie strony z odpowiednimi parametrami
             if page_factory is VisitsWindow:
                 page = page_factory(self.doctor_id)
             elif page_factory in (ReceptionistDashboardPage, RegistrationPage):
@@ -112,8 +119,10 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(self.pages)
         self.setCentralWidget(container)
 
+        # 5) Domyślnie pokazujemy pierwszą stronę
         if self.pages.count() > 0:
             self.pages.setCurrentIndex(0)
+
 
     def _create_sidebar(self) -> QFrame:
         frame = QFrame()

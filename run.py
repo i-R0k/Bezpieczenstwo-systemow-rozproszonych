@@ -19,7 +19,7 @@ def start_processes():
             cwd=str(API_DIR)
         ),
         subprocess.Popen(
-            [sys.executable, "-m", "vetclinic_gui.main"],
+            [sys.executable, "-m", "vetclinic_gui"],
             cwd=str(GUI_DIR)
         )
     ]
