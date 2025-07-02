@@ -10,9 +10,14 @@ from web3 import Web3
 load_dotenv()
 # pobieramy BLOCKCHAIN_URL, a gdy nie jest ustawione — domyślnie Ganache na localhost
 RPC_URL = os.getenv("BLOCKCHAIN_URL", "http://127.0.0.1:8545")
-print(f"Using RPC URL: {RPC_URL}")
-assert RPC_URL, "Please set BLOCKCHAIN_URL in .env (lub zdefiniuj zmienną w pliku .env)"
 
+def get_w3():
+    from web3 import Web3, HTTPProvider
+    print(f"Using RPC URL: {RPC_URL}")
+    w3 = Web3(HTTPProvider(RPC_URL))
+    if not w3.is_connected():
+        raise ConnectionError(f"Cannot connect to blockchain at {RPC_URL}")
+    return w3
 
 
 # 2) Connect to blockchain via Ganache (accounts are unlocked)

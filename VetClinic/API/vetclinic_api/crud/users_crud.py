@@ -26,6 +26,7 @@ def create_client(db: Session, cli_in: ClientCreate) -> Client:
         address              = cli_in.address,
         postal_code          = cli_in.postal_code,
         must_change_password = True,
+        wallet_address       = cli_in.wallet_address,
     )
     db.add(client)
     db.commit()
