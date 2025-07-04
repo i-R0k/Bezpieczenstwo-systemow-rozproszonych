@@ -1,6 +1,7 @@
 import pytest
 from unittest.mock import patch, MagicMock
 from PyQt5.QtWidgets import QApplication, QTableWidgetItem, QMessageBox
+pytestmark = pytest.mark.gui
 
 @pytest.fixture(scope="session")
 def app():

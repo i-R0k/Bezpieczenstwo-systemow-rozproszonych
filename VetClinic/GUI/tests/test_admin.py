@@ -1,6 +1,7 @@
 import pytest
 from unittest.mock import patch, MagicMock
 from PyQt5.QtWidgets import QApplication, QMessageBox, QTableWidgetItem
+pytestmark = pytest.mark.gui
 
 # ==================== FIXTURES ====================
 

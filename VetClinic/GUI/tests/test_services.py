@@ -1,5 +1,6 @@
 import pytest
 from unittest.mock import patch, MagicMock
+pytestmark = pytest.mark.gui
 
 # ===================== consultant_service.py =====================
 
