@@ -402,3 +402,64 @@ def test_medical_records_crud(monkeypatch):
         "description": "Szczepienie"
     })
     assert r2.status_code == 201
+
+
+def test_consultant_create(monkeypatch):
+    def fake_create_consultant(db, user):
+        return {
+            "id": 123,
+            "first_name": user.first_name if hasattr(user, "first_name") else user["first_name"],
+            "last_name": user.last_name if hasattr(user, "last_name") else user["last_name"],
+            "email": user.email if hasattr(user, "email") else user["email"],
+            "facility_id": 1,
+            "backup_email": "backup@a.com",
+            "must_change_password": False,
+            "wallet_address": "0xAAA"
+        }
+    monkeypatch.setattr(consultants, "create_consultant", fake_create_consultant)
+
+    payload = {
+        "first_name": "Anna",
+        "last_name": "Nowak",
+        "email": "anna@x.com",
+        "facility_id": 1,
+        "backup_email": "backup@a.com",
+        "wallet_address": "0xAAA"
+    }
+    r = client.post("/consultants/", json=payload)
+    assert r.status_code == 201
+    assert r.json()["first_name"] == "Anna"
+    assert r.json()["id"] == 123
+
+# --- TEST 2: Odczyt pojedynczego konsultanta - 404 ---
+def test_consultant_read_notfound(monkeypatch):
+    monkeypatch.setattr(consultants, "get_consultant", lambda db, cid: None)
+    r = client.get("/consultants/1234")
+    assert r.status_code == 404
+
+# --- TEST 3: Odczyt wszystkich wizyt (appointments) ---
+def test_appointments_list(monkeypatch):
+    monkeypatch.setattr(appointments.appointments_crud, "get_appointments", lambda db, skip, limit: [
+        {
+            "id": 1,
+            "owner_id": 1,
+            "animal_id": 2,
+            "visit_datetime": "2024-07-03T09:00:00",
+            "fee": 111.00,
+            "doctor_id": 7,
+            "facility_id": 1,
+            "created_at": "2024-07-02T08:00:00",
+            "updated_at": "2024-07-02T08:00:00"
+        }
+    ])
+    r = client.get("/appointments/")
+    assert r.status_code == 200
+    assert isinstance(r.json(), list)
+    assert r.json()[0]["id"] == 1
+
+# --- TEST 4: Lista wolnych slotów - niedziela ---
+def test_appointments_free_slots_sunday(monkeypatch):
+    # nie patchujemy, endpoint ma logiczkę która sprawdza niedzielę
+    response = client.get("/appointments/free_slots/?doctor_id=5&date=2024-07-07")  # 2024-07-07 to niedziela
+    assert response.status_code == 200
+    assert response.json() == []
