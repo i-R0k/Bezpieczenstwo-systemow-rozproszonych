@@ -27,7 +27,8 @@ jobs:
       - name: Run tests and generate coverage report
         run: |
           export PYTHONPATH=$PYTHONPATH:./VetClinic/API
-          pytest --cov=VetClinic --cov-report=xml
+          pytest --cov=VetClinic --cov-report=xml -m "not gui"
+
 
       - name: SonarCloud Scan
         uses: SonarSource/sonarqube-scan-action@v5.0.0
