@@ -34,6 +34,42 @@ make test-bft-contract
 python -m pytest tests/bft -q
 ```
 
+## Testy bezpieczenstwa
+
+Security testbed obejmuje caly projekt: VetClinic API, legacy blockchain/RPC/cluster/admin endpoints, BFT `/bft/*`, Docker/Compose, monitoring, GUI, dependencies, secrets i CI. Obecny etap dodaje fundament smoke testow oraz dokumenty planujace zakres.
+
+```powershell
+python scripts/run_security_testbed.py
+make test-security
+make test-security-infra
+python scripts/run_security_tools.py
+```
+
+Zakres i model zagrozen:
+
+- `docs/THREAT_MODEL.md`
+- `docs/SECURITY_TEST_PLAN.md`
+
+`scripts/run_security_tools.py` uruchamia lokalnie pytest security, Bandit i pip-audit, a Semgrep oraz Trivy tylko wtedy, gdy sa dostepne w PATH. ZAP baseline jest osobnym, manualnym workflow `.github/workflows/zap-baseline.yml`; na tym etapie jest non-blocking i generuje raport demonstracyjny.
+
+### Strict mode dla endpointow administracyjnych
+
+Domyslnie projekt dziala w trybie demo:
+
+```powershell
+$env:BFT_SECURITY_MODE="demo"
+```
+
+W trybie strict endpointy administracyjne i destrukcyjne BFT wymagaja naglowka `X-BFT-Admin-Token`:
+
+```powershell
+$env:BFT_SECURITY_MODE="strict"
+$env:BFT_ADMIN_TOKEN="change-me"
+curl.exe -H "X-BFT-Admin-Token: change-me" http://127.0.0.1:8000/bft/status
+```
+
+Token nie jest pelnym IAM; to demonstracyjny hardening do testow auth/authz.
+
 ## Uruchomienie API
 
 Z katalogu repo:
@@ -55,6 +91,7 @@ Swagger UI jest dostepny pod `/docs`.
 ## Docker Compose
 
 Docker Compose uruchamia bazowe serwisy projektu VetClinic. Testbed BFT nie wymaga Dockera.
+Prometheus `9090` i Grafana `3000` sa lokalnymi portami demo do obserwowalnosci, a klucze w `docker-compose.yml` sa wartosciami demonstracyjnymi do wymiany poza trybem laboratoryjnym.
 
 ```powershell
 docker compose up -d --build
@@ -89,6 +126,8 @@ Raport demo powinien zawierac `status=ok`, `final_operation_status=EXECUTED`, `c
 - `docs/SCENARIUSZ_PREZENTACJI.md`
 - `docs/API_BFT.md`
 - `docs/OGRANICZENIA.md`
+- `docs/THREAT_MODEL.md`
+- `docs/SECURITY_TEST_PLAN.md`
 
 ## Ograniczenia
 

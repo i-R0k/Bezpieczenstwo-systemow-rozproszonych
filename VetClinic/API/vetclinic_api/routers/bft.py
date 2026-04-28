@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Body, HTTPException, Query, Response
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field
 
 from vetclinic_api.bft import apply_fastapi_compat
@@ -90,6 +90,7 @@ from vetclinic_api.bft.swim.models import (
 from vetclinic_api.bft.swim.service import SwimService
 from vetclinic_api.bft.swim.store import SWIM_STORE
 from vetclinic_api.cluster.config import CONFIG
+from vetclinic_api.security_mode import get_max_list_limit, require_admin_token
 
 apply_fastapi_compat()
 
@@ -131,6 +132,7 @@ RECOVERY_SERVICE = RecoveryService(
     CRYPTO_SERVICE,
 )
 LAST_DEMO_REPORT: BftDemoReport | None = None
+ADMIN_DEPENDENCIES = [Depends(require_admin_token)]
 
 
 class NarwhalAckRequest(BaseModel):
@@ -171,8 +173,8 @@ class FaultRuleRequest(BaseModel):
     source_node_id: int | None = None
     target_node_id: int | None = None
     message_kind: MessageKind | None = None
-    probability: float = 1.0
-    delay_ms: int | None = None
+    probability: float = Field(default=1.0, ge=0.0, le=1.0)
+    delay_ms: int | None = Field(default=None, ge=0)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -590,7 +592,7 @@ def quorum() -> dict:
 
 
 @router.get("/events")
-def list_events(limit: int = Query(default=100, ge=0)) -> dict:
+def list_events(limit: int = Query(default=100, ge=0, le=get_max_list_limit())) -> dict:
     return {
         "events": EVENT_LOG.list(limit=limit),
         "limit": limit,
@@ -625,7 +627,7 @@ def observability_metrics_snapshot() -> dict:
     }
 
 
-@router.post("/demo/run", response_model=BftDemoReport)
+@router.post("/demo/run", response_model=BftDemoReport, dependencies=ADMIN_DEPENDENCIES)
 def run_bft_demo() -> BftDemoReport:
     global LAST_DEMO_REPORT
     LAST_DEMO_REPORT = _demo_runner().run_full_demo(total_nodes=_node_count())
@@ -639,14 +641,14 @@ def get_last_bft_demo_report() -> BftDemoReport:
     return LAST_DEMO_REPORT
 
 
-@router.delete("/demo/last-report")
+@router.delete("/demo/last-report", dependencies=ADMIN_DEPENDENCIES)
 def clear_last_bft_demo_report() -> dict:
     global LAST_DEMO_REPORT
     LAST_DEMO_REPORT = None
     return {"status": "cleared"}
 
 
-@router.post("/crypto/demo-keys")
+@router.post("/crypto/demo-keys", dependencies=ADMIN_DEPENDENCIES)
 def create_crypto_demo_keys(
     total_nodes: int | None = Query(default=None, ge=1),
 ) -> dict:
@@ -702,13 +704,13 @@ def crypto_verify_protocol(
     )
 
 
-@router.delete("/crypto")
+@router.delete("/crypto", dependencies=ADMIN_DEPENDENCIES)
 def clear_crypto() -> dict:
     CRYPTO_SERVICE.clear()
     return {"status": "cleared"}
 
 
-@router.post("/faults/rules", response_model=FaultRule)
+@router.post("/faults/rules", response_model=FaultRule, dependencies=ADMIN_DEPENDENCIES)
 def create_fault_rule(request: FaultRuleRequest) -> FaultRule:
     try:
         return FAULT_SERVICE.create_rule(
@@ -740,7 +742,7 @@ def get_fault_rule(rule_id: str) -> FaultRule:
         raise
 
 
-@router.put("/faults/rules/{rule_id}/enable", response_model=FaultRule)
+@router.put("/faults/rules/{rule_id}/enable", response_model=FaultRule, dependencies=ADMIN_DEPENDENCIES)
 def enable_fault_rule(rule_id: str) -> FaultRule:
     try:
         return FAULT_STORE.enable_rule(rule_id)
@@ -749,7 +751,7 @@ def enable_fault_rule(rule_id: str) -> FaultRule:
         raise
 
 
-@router.put("/faults/rules/{rule_id}/disable", response_model=FaultRule)
+@router.put("/faults/rules/{rule_id}/disable", response_model=FaultRule, dependencies=ADMIN_DEPENDENCIES)
 def disable_fault_rule(rule_id: str) -> FaultRule:
     try:
         return FAULT_STORE.disable_rule(rule_id)
@@ -758,7 +760,7 @@ def disable_fault_rule(rule_id: str) -> FaultRule:
         raise
 
 
-@router.delete("/faults/rules/{rule_id}")
+@router.delete("/faults/rules/{rule_id}", dependencies=ADMIN_DEPENDENCIES)
 def delete_fault_rule(rule_id: str) -> dict:
     try:
         FAULT_STORE.delete_rule(rule_id)
@@ -768,7 +770,7 @@ def delete_fault_rule(rule_id: str) -> dict:
         raise
 
 
-@router.post("/faults/partitions", response_model=NetworkPartition)
+@router.post("/faults/partitions", response_model=NetworkPartition, dependencies=ADMIN_DEPENDENCIES)
 def create_fault_partition(request: NetworkPartitionRequest) -> NetworkPartition:
     try:
         return FAULT_SERVICE.create_partition(request.groups)
@@ -782,7 +784,7 @@ def list_fault_partitions() -> dict:
     return {"partitions": FAULT_STORE.list_partitions()}
 
 
-@router.put("/faults/partitions/{partition_id}/enable", response_model=NetworkPartition)
+@router.put("/faults/partitions/{partition_id}/enable", response_model=NetworkPartition, dependencies=ADMIN_DEPENDENCIES)
 def enable_fault_partition(partition_id: str) -> NetworkPartition:
     try:
         return FAULT_STORE.enable_partition(partition_id)
@@ -791,7 +793,7 @@ def enable_fault_partition(partition_id: str) -> NetworkPartition:
         raise
 
 
-@router.put("/faults/partitions/{partition_id}/disable", response_model=NetworkPartition)
+@router.put("/faults/partitions/{partition_id}/disable", response_model=NetworkPartition, dependencies=ADMIN_DEPENDENCIES)
 def disable_fault_partition(partition_id: str) -> NetworkPartition:
     try:
         return FAULT_STORE.disable_partition(partition_id)
@@ -800,7 +802,7 @@ def disable_fault_partition(partition_id: str) -> NetworkPartition:
         raise
 
 
-@router.delete("/faults/partitions/{partition_id}")
+@router.delete("/faults/partitions/{partition_id}", dependencies=ADMIN_DEPENDENCIES)
 def delete_fault_partition(partition_id: str) -> dict:
     try:
         FAULT_STORE.delete_partition(partition_id)
@@ -821,7 +823,7 @@ def fault_status() -> FaultInjectionStatus:
 
 
 @router.get("/faults/injected")
-def list_injected_faults(limit: int = Query(default=100, ge=0)) -> dict:
+def list_injected_faults(limit: int = Query(default=100, ge=0, le=get_max_list_limit())) -> dict:
     return {"injected_faults": FAULT_STORE.list_injected_faults(limit=limit)}
 
 
@@ -830,7 +832,7 @@ def list_equivocation_conflicts() -> dict:
     return {"conflicts": EQUIVOCATION_DETECTOR.list_conflicts()}
 
 
-@router.delete("/faults")
+@router.delete("/faults", dependencies=ADMIN_DEPENDENCIES)
 def clear_faults() -> dict:
     FAULT_SERVICE.clear()
     REPLAY_GUARD.clear()
@@ -838,7 +840,7 @@ def clear_faults() -> dict:
     return {"status": "cleared"}
 
 
-@router.post("/checkpointing/snapshots", response_model=StateSnapshot)
+@router.post("/checkpointing/snapshots", response_model=StateSnapshot, dependencies=ADMIN_DEPENDENCIES)
 def create_checkpoint_snapshot(
     payload: CheckpointCreateRequest | None = Body(default=None),
 ) -> StateSnapshot:
@@ -848,7 +850,7 @@ def create_checkpoint_snapshot(
 
 
 @router.get("/checkpointing/snapshots")
-def list_checkpoint_snapshots(limit: int = Query(default=100, ge=0)) -> dict:
+def list_checkpoint_snapshots(limit: int = Query(default=100, ge=0, le=get_max_list_limit())) -> dict:
     return {"snapshots": CHECKPOINT_STORE.list_snapshots(limit=limit)}
 
 
@@ -863,6 +865,7 @@ def get_checkpoint_snapshot(snapshot_id: str) -> StateSnapshot:
 @router.post(
     "/checkpointing/snapshots/{snapshot_id}/certify",
     response_model=CheckpointCertificate,
+    dependencies=ADMIN_DEPENDENCIES,
 )
 def certify_checkpoint_snapshot(
     snapshot_id: str,
@@ -893,13 +896,13 @@ def checkpointing_status() -> CheckpointStatus:
     return CHECKPOINT_SERVICE.status()
 
 
-@router.delete("/checkpointing")
+@router.delete("/checkpointing", dependencies=ADMIN_DEPENDENCIES)
 def clear_checkpointing() -> dict:
     CHECKPOINT_SERVICE.clear()
     return {"status": "cleared"}
 
 
-@router.post("/recovery/state-transfer", response_model=StateTransferRequest)
+@router.post("/recovery/state-transfer", response_model=StateTransferRequest, dependencies=ADMIN_DEPENDENCIES)
 def request_state_transfer(request: StateTransferCreateRequest) -> StateTransferRequest:
     try:
         return RECOVERY_SERVICE.request_state_transfer(
@@ -913,7 +916,7 @@ def request_state_transfer(request: StateTransferCreateRequest) -> StateTransfer
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
-@router.post("/recovery/state-transfer/{node_id}/response", response_model=StateTransferResponse)
+@router.post("/recovery/state-transfer/{node_id}/response", response_model=StateTransferResponse, dependencies=ADMIN_DEPENDENCIES)
 def build_state_transfer_response(node_id: int) -> StateTransferResponse:
     try:
         transfer = next(
@@ -926,7 +929,7 @@ def build_state_transfer_response(node_id: int) -> StateTransferResponse:
     return RECOVERY_SERVICE.build_state_transfer_response(transfer)
 
 
-@router.post("/recovery/nodes/{node_id}/apply", response_model=RecoveryResult)
+@router.post("/recovery/nodes/{node_id}/apply", response_model=RecoveryResult, dependencies=ADMIN_DEPENDENCIES)
 def apply_state_transfer(node_id: int) -> RecoveryResult:
     try:
         transfer = next(
@@ -942,7 +945,7 @@ def apply_state_transfer(node_id: int) -> RecoveryResult:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
-@router.post("/recovery/nodes/{node_id}/recover-demo", response_model=RecoveryResult)
+@router.post("/recovery/nodes/{node_id}/recover-demo", response_model=RecoveryResult, dependencies=ADMIN_DEPENDENCIES)
 def recover_node_demo(
     node_id: int,
     checkpoint_id: str | None = Query(default=None),
@@ -964,7 +967,7 @@ def recovery_status() -> RecoveryStatus:
     return RECOVERY_SERVICE.status()
 
 
-@router.delete("/recovery")
+@router.delete("/recovery", dependencies=ADMIN_DEPENDENCIES)
 def clear_recovery() -> dict:
     RECOVERY_SERVICE.clear()
     return {"status": "cleared"}
@@ -985,7 +988,7 @@ def create_narwhal_batch(request: NarwhalBatchRequest) -> NarwhalBatchResponse:
 
 
 @router.get("/narwhal/batches")
-def list_narwhal_batches(limit: int = Query(default=100, ge=0)) -> dict:
+def list_narwhal_batches(limit: int = Query(default=100, ge=0, le=get_max_list_limit())) -> dict:
     return {
         "batches": NARWHAL_STORE.list_batches(limit=limit),
         "limit": limit,
@@ -1089,7 +1092,7 @@ def get_narwhal_tips() -> dict:
     return {"tips": NARWHAL_STORE.get_tips()}
 
 
-@router.delete("/narwhal")
+@router.delete("/narwhal", dependencies=ADMIN_DEPENDENCIES)
 def clear_narwhal(clear_operations: bool = Query(default=False)) -> dict:
     NARWHAL_SERVICE.clear()
     if clear_operations:
@@ -1240,7 +1243,7 @@ def swim_mark_recovering(node_id: int) -> SwimMember:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
-@router.delete("/swim")
+@router.delete("/swim", dependencies=ADMIN_DEPENDENCIES)
 def clear_swim() -> dict:
     SWIM_SERVICE.clear()
     return {"status": "cleared"}
@@ -1266,7 +1269,7 @@ def create_hotstuff_proposal(
 
 
 @router.get("/hotstuff/proposals")
-def list_hotstuff_proposals(limit: int = Query(default=100, ge=0)) -> dict:
+def list_hotstuff_proposals(limit: int = Query(default=100, ge=0, le=get_max_list_limit())) -> dict:
     return {
         "proposals": HOTSTUFF_STORE.list_proposals(limit=limit),
         "limit": limit,
@@ -1367,7 +1370,7 @@ def commit_hotstuff_qc(qc_id: str) -> CommitCertificate:
 
 
 @router.get("/hotstuff/commits")
-def list_hotstuff_commits(limit: int = Query(default=100, ge=0)) -> dict:
+def list_hotstuff_commits(limit: int = Query(default=100, ge=0, le=get_max_list_limit())) -> dict:
     return {
         "commits": HOTSTUFF_STORE.list_commits(limit=limit),
         "limit": limit,
@@ -1375,7 +1378,7 @@ def list_hotstuff_commits(limit: int = Query(default=100, ge=0)) -> dict:
 
 
 @router.get("/hotstuff/status", response_model=HotStuffStatus)
-def hotstuff_status(limit: int = Query(default=100, ge=0)) -> HotStuffStatus:
+def hotstuff_status(limit: int = Query(default=100, ge=0, le=get_max_list_limit())) -> HotStuffStatus:
     return HOTSTUFF_SERVICE.status(limit=limit)
 
 
@@ -1395,7 +1398,7 @@ def hotstuff_view_change_demo(
         raise
 
 
-@router.delete("/hotstuff")
+@router.delete("/hotstuff", dependencies=ADMIN_DEPENDENCIES)
 def clear_hotstuff(
     clear_narwhal: bool = Query(default=False),
     clear_operations: bool = Query(default=False),
@@ -1430,7 +1433,7 @@ def submit_client_operation(input: ClientOperationInput) -> ClientOperation:
 
 
 @router.get("/operations")
-def list_operations(limit: int = Query(default=100, ge=0)) -> dict:
+def list_operations(limit: int = Query(default=100, ge=0, le=get_max_list_limit())) -> dict:
     return {
         "operations": OPERATION_STORE.list(limit=limit),
         "limit": limit,
@@ -1699,7 +1702,7 @@ def run_demo_flow(operation_id: str) -> OperationTrace:
         raise
 
 
-@router.delete("/operations")
+@router.delete("/operations", dependencies=ADMIN_DEPENDENCIES)
 def clear_operations() -> dict:
     OPERATION_STORE.clear()
     EVENT_LOG.clear()

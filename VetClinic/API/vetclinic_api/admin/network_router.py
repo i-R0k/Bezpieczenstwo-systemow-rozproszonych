@@ -2,10 +2,13 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from vetclinic_api.admin.network_state import state_payload, update_state
+from vetclinic_api.security_mode import require_admin_token
+
+ADMIN_DEPENDENCIES = [Depends(require_admin_token)]
 
 router = APIRouter(prefix="/admin/network", tags=["admin-network"])
 
@@ -80,7 +83,7 @@ def get_sim_state():
     return NetworkSimPayload(**_select_payload(SIM_FIELDS))
 
 
-@router.put("/sim", response_model=NetworkSimPayload)
+@router.put("/sim", response_model=NetworkSimPayload, dependencies=ADMIN_DEPENDENCIES)
 def set_sim_state(payload: NetworkSimUpdate):
     updates = payload.model_dump(exclude_unset=True)
     if updates:
@@ -93,7 +96,7 @@ def get_fault_state():
     return RpcFaultsPayload(**_select_payload(FAULT_FIELDS))
 
 
-@router.put("/state", response_model=RpcFaultsPayload)
+@router.put("/state", response_model=RpcFaultsPayload, dependencies=ADMIN_DEPENDENCIES)
 def set_fault_state(payload: RpcFaultsUpdate):
     updates = payload.model_dump(exclude_unset=True)
     if updates:

@@ -18,4 +18,9 @@ ENV PYTHONPATH=/app/VetClinic/API
 # Domyślny port wewnątrz kontenera
 ENV API_PORT=8000
 
+RUN adduser --disabled-password --gecos "" appuser \
+    && chown -R appuser:appuser /app
+
+USER appuser
+
 CMD ["uvicorn", "vetclinic_api.main:app", "--host", "0.0.0.0", "--port", "8000"]

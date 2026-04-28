@@ -4,6 +4,8 @@ from datetime import datetime, timezone
 
 from pydantic import BaseModel, Field
 
+from vetclinic_api.security_mode import get_max_batch_operations
+
 
 class NarwhalBatch(BaseModel):
     batch_id: str
@@ -47,7 +49,7 @@ class NarwhalDagView(BaseModel):
 
 class NarwhalBatchRequest(BaseModel):
     operation_ids: list[str] | None = None
-    max_operations: int = 10
+    max_operations: int = Field(default=10, ge=1, le=get_max_batch_operations())
 
 
 class NarwhalBatchResponse(BaseModel):

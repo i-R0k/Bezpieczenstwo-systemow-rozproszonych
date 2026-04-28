@@ -1,6 +1,7 @@
 # VetClinic/API/vetclinic_api/routers/appointments.py
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from typing import List
 from datetime import date, datetime, time, timedelta
@@ -17,7 +18,14 @@ router = APIRouter(
 
 @router.post("/", response_model=Appointment, status_code=status.HTTP_201_CREATED)
 def create_appointment(appointment: AppointmentCreate, db: Session = Depends(get_db)):
-    return appointments_crud.create_appointment(db, appointment)
+    try:
+        return appointments_crud.create_appointment(db, appointment)
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=400,
+            detail="Appointment could not be created with the provided references",
+        ) from exc
 
 @router.get("/", response_model=List[Appointment])
 def read_appointments(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):

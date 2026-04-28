@@ -108,6 +108,12 @@ async def submit_transaction(
     except ValueError:
         inc_tx_rejected("validation")
         raise
+    except RuntimeError as exc:
+        inc_tx_rejected("configuration")
+        raise HTTPException(
+            status_code=503,
+            detail="Blockchain leader signing keys are not configured",
+        ) from exc
     except Exception:
         inc_tx_rejected("exception")
         raise
@@ -235,6 +241,11 @@ async def mine_distributed(
 
     try:
         proposal = build_block_proposal(storage)
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Blockchain leader signing keys are not configured",
+        ) from exc
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 

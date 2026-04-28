@@ -1,0 +1,45 @@
+name: Security tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install API dependencies
+        run: python -m pip install -r requirements-api.txt
+
+      - name: Install security dependencies
+        run: python -m pip install -r requirements-security.txt
+
+      - name: Run security pytest suite
+        run: python -m pytest tests/security -q
+
+      - name: Run Bandit
+        run: bandit -r VetClinic/API/vetclinic_api -x "*/tests/*"
+
+      - name: Run pip-audit
+        run: pip-audit -r requirements-api.txt
+
+      - name: Run Semgrep
+        continue-on-error: true
+        run: semgrep scan --config p/python VetClinic/API/vetclinic_api
+
+      - name: Run Trivy filesystem scan
+        uses: aquasecurity/trivy-action@master
+        continue-on-error: true
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig

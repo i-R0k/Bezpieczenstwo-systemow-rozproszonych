@@ -5,16 +5,33 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from vetclinic_api.bft.common.types import OperationStatus, ProtocolName
+from vetclinic_api.security_mode import get_max_payload_bytes
 
 
 class ClientOperationInput(BaseModel):
-    sender: str
-    recipient: str
-    amount: float
+    sender: str = Field(min_length=1)
+    recipient: str = Field(min_length=1)
+    amount: float = Field(gt=0)
     payload: dict[str, Any] | None = None
+
+    @field_validator("sender", "recipient")
+    @classmethod
+    def non_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("must not be blank")
+        return value
+
+    @model_validator(mode="after")
+    def payload_size_limit(self):
+        import json
+
+        raw = json.dumps(self.payload or {}, sort_keys=True, separators=(",", ":"), default=str)
+        if len(raw.encode("utf-8")) > get_max_payload_bytes():
+            raise ValueError("payload exceeds BFT_MAX_PAYLOAD_BYTES")
+        return self
 
 
 class ClientOperation(BaseModel):
