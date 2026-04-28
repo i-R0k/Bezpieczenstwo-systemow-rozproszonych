@@ -1,0 +1,26 @@
+name: BFT Testbed
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  bft-testbed:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements-api.txt ]; then
+            python -m pip install -r requirements-api.txt
+          else
+            python -m pip install -r requirements.txt
+          fi
+      - name: Run BFT tests
+        run: python -m pytest tests/bft -q
+      - name: Compile BFT modules
+        run: python -m compileall VetClinic/API/vetclinic_api/bft VetClinic/API/vetclinic_api/routers/bft.py

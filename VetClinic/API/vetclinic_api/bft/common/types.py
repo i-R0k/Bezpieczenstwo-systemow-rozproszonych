@@ -1,0 +1,60 @@
+from __future__ import annotations
+
+from enum import Enum
+
+NodeId = int
+
+
+class ProtocolName(str, Enum):
+    NARWHAL = "NARWHAL"
+    HOTSTUFF = "HOTSTUFF"
+    SWIM = "SWIM"
+    CHECKPOINTING = "CHECKPOINTING"
+    RECOVERY = "RECOVERY"
+
+
+class OperationStatus(str, Enum):
+    RECEIVED = "RECEIVED"
+    BATCHED = "BATCHED"
+    AVAILABLE = "AVAILABLE"
+    PROPOSED = "PROPOSED"
+    VOTED = "VOTED"
+    QC_FORMED = "QC_FORMED"
+    COMMITTED = "COMMITTED"
+    EXECUTED = "EXECUTED"
+    REJECTED = "REJECTED"
+    FAILED = "FAILED"
+
+
+class NodeStatus(str, Enum):
+    ALIVE = "ALIVE"
+    SUSPECT = "SUSPECT"
+    DEAD = "DEAD"
+    RECOVERING = "RECOVERING"
+
+
+class FaultType(str, Enum):
+    CRASH = "CRASH"
+    DELAY = "DELAY"
+    DROP = "DROP"
+    DUPLICATE = "DUPLICATE"
+    REPLAY = "REPLAY"
+    EQUIVOCATION = "EQUIVOCATION"
+    NETWORK_PARTITION = "NETWORK_PARTITION"
+    LEADER_FAILURE = "LEADER_FAILURE"
+    STATE_CORRUPTION = "STATE_CORRUPTION"
+
+
+class MessageKind(str, Enum):
+    CLIENT_OPERATION = "CLIENT_OPERATION"
+    BATCH = "BATCH"
+    BATCH_ACK = "BATCH_ACK"
+    PROPOSAL = "PROPOSAL"
+    VOTE = "VOTE"
+    QUORUM_CERTIFICATE = "QUORUM_CERTIFICATE"
+    COMMIT = "COMMIT"
+    SWIM_PING = "SWIM_PING"
+    SWIM_ACK = "SWIM_ACK"
+    SWIM_GOSSIP = "SWIM_GOSSIP"
+    CHECKPOINT = "CHECKPOINT"
+    STATE_TRANSFER = "STATE_TRANSFER"
