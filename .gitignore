@@ -22,3 +22,6 @@ dist/
 
 # ─── pliki systemowe ───────────────────────────────────────────────────
 .DS_Store
+VetClinic/API/.env
+.env
+*.env
