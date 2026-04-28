@@ -352,17 +352,16 @@ def architecture() -> dict:
     recovery_status = RECOVERY_SERVICE.status()
     global LAST_DEMO_REPORT
     return {
-        "stage": "architecture-boundaries",
-        "status": "first refactor stage",
+        "stage": "final-bft-demonstrator",
+        "status": "demonstracyjna implementacja in-memory",
         "description": (
-            "The BFT layer is separated from the VetClinic domain. "
-            "Current code exposes stable contracts for future Narwhal, "
-            "HotStuff, SWIM, checkpointing, recovery, fault injection, "
-            "and observability modules without implementing full protocols yet."
+            "BFT layer exposes demonstracyjne, in-memory kontrakty Narwhal, "
+            "HotStuff, SWIM, fault injection, checkpointing, recovery, crypto "
+            "i observability. VetClinic remains the sample application domain."
         ),
         "boundaries": {
             "domain": "VetClinic models, CRUD, services, and legacy blockchain endpoints",
-            "bft": "protocol contracts, event log, quorum math, and future protocol modules",
+            "bft": "demonstracyjne protocol contracts, event log, quorum math, and in-memory protocol modules",
             "api": "FastAPI routers exposing stable external contracts",
             "ops": "fault injection, Prometheus, Grafana, and scenario scripts",
         },
@@ -406,39 +405,170 @@ def architecture() -> dict:
 
 @router.get("/protocols")
 def protocols() -> dict:
+    implementation_level = "demonstracyjna, in-memory"
     return {
         "protocols": [
             {
                 "name": "Narwhal",
-                "scope": "batching, DAG, data availability",
-                "implemented": False,
+                "scope": "batching, DAG, data availability, batch certificate",
+                "implemented": True,
+                "implementation_level": implementation_level,
+                "limitations": "local in-memory DAG and local demo certification, no production network broadcast",
             },
             {
                 "name": "HotStuff",
                 "scope": "proposal, vote, quorum certificate, commit, view-change",
-                "implemented": False,
+                "implemented": True,
+                "implementation_level": implementation_level,
+                "limitations": "local demo QC/view-change, no production multi-process consensus pipeline",
             },
             {
                 "name": "SWIM",
                 "scope": "membership, alive/suspect/dead detection",
-                "implemented": False,
-            },
-            {
-                "name": "Checkpointing",
-                "scope": "state snapshots and stable recovery points",
-                "implemented": False,
-            },
-            {
-                "name": "Recovery",
-                "scope": "state transfer and node catch-up",
-                "implemented": False,
+                "implemented": True,
+                "implementation_level": implementation_level,
+                "limitations": "logical in-memory membership, no full distributed gossip transport",
             },
             {
                 "name": "Fault Injection",
-                "scope": "controlled crash, delay, drop, partition, and Byzantine scenarios",
-                "implemented": False,
+                "scope": "controlled drop, delay, duplicate, replay, equivocation, partition, leader failure",
+                "implemented": True,
+                "implementation_level": implementation_level,
+                "limitations": "deterministic local decisions; delay does not sleep in tests",
+            },
+            {
+                "name": "Checkpointing",
+                "scope": "state snapshots, state hash, checkpoint certificate",
+                "implemented": True,
+                "implementation_level": implementation_level,
+                "limitations": "snapshots and certificates are in-memory",
+            },
+            {
+                "name": "Recovery",
+                "scope": "state transfer, apply checkpoint, node catch-up",
+                "implemented": True,
+                "implementation_level": implementation_level,
+                "limitations": "state transfer is modeled locally",
+            },
+            {
+                "name": "Crypto",
+                "scope": "Ed25519 signing, canonical JSON, nonce, message_id, replay protection",
+                "implemented": True,
+                "implementation_level": implementation_level,
+                "limitations": "demo keys are in-memory; mTLS is not production-configured",
+            },
+            {
+                "name": "Observability",
+                "scope": "health, Prometheus text metrics, metrics snapshot, demo report",
+                "implemented": True,
+                "implementation_level": implementation_level,
+                "limitations": "Prometheus/Grafana are optional; testbed uses local metrics snapshot",
             },
         ]
+    }
+
+
+def _status_section(name: str, producer) -> dict:
+    try:
+        payload = producer()
+        if isinstance(payload, dict):
+            return {"status": "ok", **payload}
+        return {"status": "ok", "value": payload}
+    except Exception as exc:
+        return {"status": "error", "error": str(exc), "section": name}
+
+
+@router.get("/status")
+def bft_status() -> dict:
+    return {
+        "status": "ok",
+        "architecture": _status_section(
+            "architecture",
+            lambda: {
+                "stage": "final-bft-demonstrator",
+                "implementation_level": "demonstracyjna, in-memory",
+                "router": "/bft",
+            },
+        ),
+        "quorum": _status_section(
+            "quorum",
+            lambda: {
+                "summary": describe_quorum(_node_count()),
+                "self": CONFIG.node_id,
+                "peers": CONFIG.peers,
+            },
+        ),
+        "operations": _status_section(
+            "operations",
+            lambda: {"count": len(OPERATION_STORE.list(limit=10_000))},
+        ),
+        "narwhal": _status_section(
+            "narwhal",
+            lambda: {
+                "batch_count": len(NARWHAL_STORE.list_batches(limit=10_000)),
+                "dag_total_batches": NARWHAL_STORE.get_dag().total_batches,
+                "tips_count": len(NARWHAL_STORE.get_tips()),
+            },
+        ),
+        "hotstuff": _status_section(
+            "hotstuff",
+            lambda: {
+                "proposal_count": len(HOTSTUFF_STORE.list_proposals(limit=10_000)),
+                "qc_count": len(HOTSTUFF_STORE.list_qcs(limit=10_000)),
+                "commit_count": len(HOTSTUFF_STORE.list_commits(limit=10_000)),
+                "view": HOTSTUFF_STORE.current_view().view,
+            },
+        ),
+        "swim": _status_section(
+            "swim",
+            lambda: {
+                "alive": SWIM_SERVICE.status(CONFIG.node_id).alive,
+                "suspect": SWIM_SERVICE.status(CONFIG.node_id).suspect,
+                "dead": SWIM_SERVICE.status(CONFIG.node_id).dead,
+                "recovering": SWIM_SERVICE.status(CONFIG.node_id).recovering,
+            },
+        ),
+        "fault_injection": _status_section(
+            "fault_injection",
+            lambda: {
+                "rules_count": len(FAULT_STORE.list_rules()),
+                "partitions_count": len(FAULT_STORE.list_partitions()),
+                "injected_count": len(FAULT_STORE.list_injected_faults(limit=10_000)),
+                "counters": FAULT_STORE.counters(),
+            },
+        ),
+        "checkpointing": _status_section(
+            "checkpointing",
+            lambda: {
+                "snapshots_count": len(CHECKPOINT_STORE.list_snapshots(limit=10_000)),
+                "certificates_count": len(CHECKPOINT_STORE.list_certificates(limit=10_000)),
+                "latest_checkpoint_id": CHECKPOINT_STORE.latest_certificate().checkpoint_id
+                if CHECKPOINT_STORE.latest_certificate()
+                else None,
+            },
+        ),
+        "recovery": _status_section(
+            "recovery",
+            lambda: {
+                "state_transfers_count": len(RECOVERY_STORE.status().transfers),
+                "recovered_nodes_count": len(RECOVERY_STORE.status().recovered_nodes),
+            },
+        ),
+        "crypto": _status_section(
+            "crypto",
+            lambda: {
+                "registered_public_keys_count": len(NODE_KEY_REGISTRY.public_keys()),
+                "replay_guard_enabled": True,
+            },
+        ),
+        "observability": _status_section(
+            "observability",
+            lambda: {
+                "metrics_enabled": True,
+                "metrics_snapshot": BFT_METRICS.snapshot(),
+                "last_demo_status": LAST_DEMO_REPORT.status if LAST_DEMO_REPORT else None,
+            },
+        ),
     }
 
 

@@ -1,15 +1,21 @@
 .PHONY: help
 help:
-	@echo "Dostępne cele:"
-	@echo "  make cluster-up        - build + uruchomienie klastra 6 węzłów"
-	@echo "  make cluster-down      - zatrzymanie klastra"
-	@echo "  make test              - uruchomienie testów (pytest)"
-	@echo "  make lint              - ruff + mypy + bandit (jeśli skonfigurowane)"
-	@echo "  make scenario-healthy  - scenariusz: wszyscy zdrowi"
-	@echo "  make scenario-faults1  - scenariusz: offline + slow"
-	@echo "  make scenario-faults2  - scenariusz: 2 byzantine"
-	@echo "  make scenario-faults3  - scenariusz: 3 byzantine (oczekiwany brak konsensusu)"
-
+	@echo "Dostepne cele:"
+	@echo "  make cluster-up              - build i uruchomienie docker compose"
+	@echo "  make cluster-down            - zatrzymanie docker compose"
+	@echo "  make test                    - uruchomienie wszystkich testow pytest"
+	@echo "  make test-bft                - uruchomienie tests/bft"
+	@echo "  make test-bft-contract       - uruchomienie scripts/run_bft_testbed.py"
+	@echo "  make test-bft-faults         - testy fault injection"
+	@echo "  make test-bft-recovery       - testy checkpointing/recovery"
+	@echo "  make test-bft-crypto         - testy crypto/replay protection"
+	@echo "  make test-bft-observability  - testy observability/demo"
+	@echo "  make test-bft-final          - testy final delivery i dokumentacji"
+	@echo "  make lint                    - ruff + mypy + bandit, jesli sa dostepne"
+	@echo "  make scenario-healthy        - scenariusz: wszyscy zdrowi"
+	@echo "  make scenario-faults1        - scenariusz: offline + slow"
+	@echo "  make scenario-faults2        - scenariusz: 2 byzantine"
+	@echo "  make scenario-faults3        - scenariusz: 3 byzantine"
 
 .PHONY: cluster-up
 cluster-up:
@@ -21,14 +27,41 @@ cluster-down:
 
 .PHONY: test
 test:
-	pytest
+	python -m pytest
+
+.PHONY: test-bft
+test-bft:
+	python -m pytest tests/bft -q
+
+.PHONY: test-bft-contract
+test-bft-contract:
+	python scripts/run_bft_testbed.py
+
+.PHONY: test-bft-faults
+test-bft-faults:
+	python -m pytest tests/bft/test_10_fault_injection_store.py tests/bft/test_11_fault_injection_service.py tests/bft/test_12_replay_guard.py tests/bft/test_13_equivocation_detector.py tests/bft/test_14_faults_narwhal_integration.py tests/bft/test_15_faults_hotstuff_integration.py tests/bft/test_16_faults_swim_integration.py tests/bft/test_17_fault_injection_router_contract.py -q
+
+.PHONY: test-bft-recovery
+test-bft-recovery:
+	python -m pytest tests/bft/test_18_checkpoint_recovery_contract.py tests/bft/test_31_crypto_checkpoint_recovery_integration.py -q
+
+.PHONY: test-bft-crypto
+test-bft-crypto:
+	python -m pytest tests/bft/test_25_crypto_keys.py tests/bft/test_26_crypto_envelope.py tests/bft/test_27_crypto_service.py tests/bft/test_28_crypto_narwhal_integration.py tests/bft/test_29_crypto_hotstuff_integration.py tests/bft/test_30_crypto_swim_integration.py tests/bft/test_31_crypto_checkpoint_recovery_integration.py tests/bft/test_32_crypto_router_contract.py -q
+
+.PHONY: test-bft-observability
+test-bft-observability:
+	python -m pytest tests/bft/test_33_observability_metrics.py tests/bft/test_34_observability_health.py tests/bft/test_35_demo_scenario_runner.py tests/bft/test_36_observability_router_contract.py tests/bft/test_37_metrics_no_duplicate_registration.py -q
+
+.PHONY: test-bft-final
+test-bft-final:
+	python -m pytest tests/bft/test_98_final_delivery_contract.py tests/bft/test_99_documentation_contract.py -q
 
 .PHONY: lint
 lint:
-	ruff vetclinic_api || true
-	mypy vetclinic_api || true
-	bandit -r vetclinic_api || true
-
+	ruff VetClinic/API/vetclinic_api || true
+	mypy VetClinic/API/vetclinic_api || true
+	bandit -r VetClinic/API/vetclinic_api || true
 
 .PHONY: scenario-healthy
 scenario-healthy:

@@ -2,12 +2,10 @@ from pathlib import Path
 from dotenv import load_dotenv
 import os
 
-# znajdź katalog API (tam, gdzie leży .env)
 BASE_DIR = Path(__file__).resolve().parent.parent.parent  # .../VetClinic/API
 DOTENV = BASE_DIR / ".env"
-if not DOTENV.exists():
-    raise FileNotFoundError(f"Nie znalazłem pliku .env pod {DOTENV}")
-load_dotenv(DOTENV)
+if DOTENV.exists():
+    load_dotenv(DOTENV)
 
 API_BASE_URL = "http://127.0.0.1:8000"
 
@@ -20,7 +18,6 @@ DB_PATH = os.path.join(PROJECT_ROOT, DB_FILENAME)
 
 DATABASE_URL = f"sqlite:///{DB_PATH}"
 
-# Możesz dodać tutaj inne ustawienia, np. secret key, port serwera itp.
 SECRET_KEY = os.getenv("SECRET_KEY", "twoj_sekret")
 
 SMTP_HOST = os.getenv("SMTP_HOST")

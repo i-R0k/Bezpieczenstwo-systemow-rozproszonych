@@ -6,6 +6,8 @@ Testbed regresyjny sprawdza kontrakty etapow 1-6 BFT bez Dockera, bez uvicorn, b
 
 ## Struktura
 
+Numeracja sekcji w `scripts/run_bft_testbed.py` odpowiada historycznym numerom plikow testowych. Nie ma osobnych plikow `test_19`-`test_24`: zakres checkpointing/state transfer/recovery zostal zagregowany w `test_18_checkpoint_recovery_contract.py`, a blok crypto zaczyna sie od `test_25`.
+
 ```text
 tests/bft/
   conftest.py

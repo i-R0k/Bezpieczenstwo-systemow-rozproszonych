@@ -5,6 +5,8 @@ import sys
 import pytest
 
 
+# Section numbers follow historical test stage/file numbers. Stages 19-24 were
+# consolidated into checkpoint/recovery test_18 before crypto tests started at 25.
 SECTIONS = [
     "[1] Architecture",
     "[2] Operation flow",
