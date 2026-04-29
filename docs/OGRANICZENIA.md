@@ -5,9 +5,10 @@ Projekt jest demonstracyjna i edukacyjna implementacja warstwy BFT oraz testow b
 ## gRPC
 
 - `proto/bft.proto` definiuje kontrakt docelowej komunikacji node-to-node.
-- Endpoint `/bft/grpc/contract` potwierdza obecny poziom `contract-only`.
-- Repo nie uruchamia serwera gRPC ani wygenerowanych stubow w podstawowej sciezce wykonania.
-- Testbed pozostaje oparty o FastAPI, serwisy in-memory i pytest.
+- Endpoint `/bft/grpc/contract` potwierdza kontrakt, a `/bft/grpc/runtime/ping-demo` uruchamia lokalny runtime demo dla `SendSwimPing`.
+- Runtime demo uzywa lokalnego insecure channel i dynamicznie generowanych stubow.
+- Pelny transport Narwhal/HotStuff/state transfer po gRPC nie jest aktywny.
+- Podstawowy testbed pozostaje oparty o FastAPI, serwisy in-memory i pytest.
 
 ## mTLS
 

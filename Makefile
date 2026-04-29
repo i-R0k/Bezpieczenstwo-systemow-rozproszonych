@@ -24,6 +24,9 @@ help:
 	@echo "  make pentest-full            - local-only full DAST harness with optional tools"
 	@echo "  make pentest-nuclei          - local-only Nuclei templates only, if nuclei is installed"
 	@echo "  make test-pentest            - pentest harness contract tests"
+	@echo "  make run-bft-dashboard       - uruchomienie PyQt BFT Dashboard"
+	@echo "  make test-gui                - testy kontraktowe GUI"
+	@echo "  make test-all                - testy BFT/security/pentest/GUI"
 	@echo "  make lint                    - ruff + mypy + bandit, jesli sa dostepne"
 	@echo "  make scenario-healthy        - scenariusz: wszyscy zdrowi"
 	@echo "  make scenario-faults1        - scenariusz: offline + slow"
@@ -41,6 +44,10 @@ cluster-down:
 .PHONY: test
 test:
 	python -m pytest
+
+.PHONY: test-all
+test-all:
+	python -m pytest tests/bft tests/security tests/pentest tests/gui -q
 
 .PHONY: test-bft
 test-bft:
@@ -68,7 +75,7 @@ test-bft-observability:
 
 .PHONY: test-bft-final
 test-bft-final:
-	python -m pytest tests/bft/test_98_final_delivery_contract.py tests/bft/test_99_documentation_contract.py tests/bft/test_101_grpc_contract.py tests/bft/test_102_dashboard_communication_contract.py tests/bft/test_103_schedule_full_compliance_contract.py -q
+	python -m pytest tests/bft/test_98_final_delivery_contract.py tests/bft/test_99_documentation_contract.py tests/bft/test_101_grpc_contract.py tests/bft/test_102_dashboard_communication_contract.py tests/bft/test_103_schedule_full_compliance_contract.py tests/bft/test_104_grpc_runtime_demo.py -q
 
 .PHONY: test-security
 test-security:
@@ -80,7 +87,7 @@ test-security-contract:
 
 .PHONY: test-security-api
 test-security-api:
-	python -m pytest tests/security/test_01_api_authentication.py tests/security/test_02_api_authorization.py tests/security/test_03_api_input_validation.py tests/security/test_04_vetclinic_business_logic.py tests/security/test_05_sqlalchemy_sqli_contract.py tests/security/test_15_error_handling_information_leakage.py tests/security/test_16_resource_abuse_dos_limits.py tests/security/test_19_totp_2fa_contract.py tests/security/test_20_dashboard_exposure_security.py -q
+	python -m pytest tests/security/test_01_api_authentication.py tests/security/test_02_api_authorization.py tests/security/test_03_api_input_validation.py tests/security/test_04_vetclinic_business_logic.py tests/security/test_05_sqlalchemy_sqli_contract.py tests/security/test_15_error_handling_information_leakage.py tests/security/test_16_resource_abuse_dos_limits.py tests/security/test_19_totp_2fa_contract.py tests/security/test_20_dashboard_exposure_security.py tests/security/test_21_grpc_runtime_security.py -q
 
 .PHONY: test-security-bft
 test-security-bft:
@@ -121,6 +128,14 @@ pentest-nuclei:
 .PHONY: test-pentest
 test-pentest:
 	python -m pytest tests/pentest -q
+
+.PHONY: run-bft-dashboard
+run-bft-dashboard:
+	python VetClinic/GUI/run_bft_dashboard.py
+
+.PHONY: test-gui
+test-gui:
+	python -m pytest tests/gui -q
 
 .PHONY: lint
 lint:

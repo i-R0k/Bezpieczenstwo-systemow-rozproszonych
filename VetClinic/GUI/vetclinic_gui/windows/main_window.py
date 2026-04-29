@@ -16,6 +16,7 @@ from .Admin.consultants import ConsultantsPage
 from .Admin.doctors import DoctorsPage
 from .Admin.clients import ClientsPage
 from .Admin.cluster_admin_widget import ClusterAdminWidget
+from .Admin.bft_dashboard_widget import AdminBftDashboardWidget
 
 from .Receptionist.dashboard import ReceptionistDashboardPage
 from .Receptionist.client_registration import RegistrationPage
@@ -70,6 +71,7 @@ class MainWindow(QMainWindow):
                 ("Lekarze", DoctorsPage),
                 ("Klienci", ClientsPage),
                 ("Sieć", ClusterAdminWidget),
+                ("BFT Dashboard", AdminBftDashboardWidget),
             ]
         elif self.user_role == "receptionist":
             pages = [

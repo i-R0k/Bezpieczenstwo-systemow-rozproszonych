@@ -105,6 +105,39 @@ Oczekiwany wynik: HTML dashboard pokazuje Cluster nodes, SWIM membership, HotStu
 
 Co powiedziec prowadzacemu: dashboard korzysta z polling/fetch i logicznego `EventLog`, a nie z WebSocket ani packet capture.
 
+## Prezentacja przez PyQt BFT Dashboard
+
+Cel: pokazac glowna desktopowa warstwe prezentacyjna projektu.
+
+Kroki:
+
+1. Uruchom backend:
+
+```powershell
+cd VetClinic/API
+$env:PYTHONPATH="."
+uvicorn vetclinic_api.main:app --reload
+```
+
+2. Uruchom PyQt dashboard:
+
+```powershell
+python VetClinic/GUI/run_bft_dashboard.py
+```
+
+3. Kliknij `Connect/Test`.
+4. Kliknij `Run full BFT demo`.
+5. Pokaz `Overview` i `Protocols`.
+6. Pokaz `Live logs`.
+7. Dodaj fault `DROP` dla `VOTE` albo `SWIM_PING`.
+8. Pokaz wplyw na HotStuff/SWIM.
+9. Kliknij `Clear faults`.
+10. Kliknij `Run gRPC ping demo`.
+11. Pokaz `Security / 2FA / transport` i wykonaj TOTP setup/verify.
+12. Pokaz recovery/checkpoint w zakladce `Protocols`.
+
+Co powiedziec prowadzacemu: PyQt BFT Dashboard jest wpiety rowniez w panel admina VetClinic jako zakladka `BFT Dashboard`; HTML `/bft/dashboard` zostal tylko jako lekki fallback.
+
 ## 9. gRPC i .proto
 
 Cel: pokazac domkniecie punktu harmonogramu dotyczacego kontraktu transportowego.

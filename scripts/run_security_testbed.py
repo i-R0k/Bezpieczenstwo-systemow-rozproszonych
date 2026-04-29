@@ -26,6 +26,7 @@ SECTIONS = [
     "[18] mTLS contract",
     "[19] TOTP/2FA contract",
     "[20] Dashboard exposure security",
+    "[21] gRPC runtime security",
 ]
 
 

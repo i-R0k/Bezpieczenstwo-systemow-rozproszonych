@@ -15,7 +15,7 @@ VetClinic pozostaje domena przykladowa i starsza warstwa aplikacyjna. BFT jest o
 - checkpoint i recovery: snapshot stanu, checkpoint certificate, state transfer i odtworzenie wezla.
 - crypto: Ed25519, canonical JSON, podpisy i replay protection.
 - observability: health, metryki i raport demo.
-- gRPC/protobuf contract: `proto/bft.proto` i endpoint `/bft/grpc/contract` jako kontrakt docelowej komunikacji node-to-node.
+- gRPC/protobuf contract i runtime demo: `proto/bft.proto`, `/bft/grpc/contract`, `/bft/grpc/runtime/status` i `/bft/grpc/runtime/ping-demo` dla lokalnego `SendSwimPing`.
 - TLS/mTLS demo tooling: generator certyfikatow w `scripts/generate_demo_certs.py` i status `/bft/security/transport`.
 - 2FA/TOTP demo: `/security/2fa/demo/*` i opcjonalny `/bft/client/submit-secure-demo`.
 - dashboard BFT: `/bft/dashboard` oraz logiczny dziennik `/bft/communication/log`.
@@ -65,6 +65,16 @@ python scripts/generate_demo_certs.py --nodes 6 --out certs/demo --force
 
 Domyslny runtime nie wymusza mTLS. Endpoint `/bft/security/transport` pokazuje `mtls_runtime_enabled=false`; szczegoly sa w `docs/MTLS.md`.
 
+### gRPC runtime demo
+
+```text
+GET  /bft/grpc/contract
+GET  /bft/grpc/runtime/status
+POST /bft/grpc/runtime/ping-demo
+```
+
+Runtime demo kompiluje `proto/bft.proto` dynamicznie i wykonuje lokalny request `SendSwimPing` przez gRPC server/client na `127.0.0.1`. Pelny transport Narwhal/HotStuff/state transfer po gRPC pozostaje rozszerzeniem.
+
 ### 2FA/TOTP demo
 
 ```powershell
@@ -86,6 +96,33 @@ make test-pentest
 ```
 
 Tryb `--quick` uruchamia tylko lekkie probe HTTP. `make pentest-zap` dodaje ZAP baseline. Tryb `--full` dodaje ZAP baseline/API scan oraz opcjonalne Nuclei i ffuf, jesli sa dostepne lokalnie. Koncowy raport powstaje jako `reports/pentest/<timestamp>/PENTEST_REPORT.md`. Szczegoly i zasady uzycia sa w `pentest/README.md` oraz `docs/PENTEST.md`.
+
+## PyQt BFT Dashboard
+
+Desktopowy PyQt BFT Dashboard jest glowna warstwa prezentacyjna protokolow BFT i jest tez wpiety w panel administratora VetClinic jako zakladka `BFT Dashboard`.
+
+Instalacja:
+
+```powershell
+pip install -r requirements-api.txt
+pip install -r requirements-gui.txt
+```
+
+Backend:
+
+```powershell
+cd VetClinic/API
+$env:PYTHONPATH="."
+uvicorn vetclinic_api.main:app --reload
+```
+
+GUI:
+
+```powershell
+python VetClinic/GUI/run_bft_dashboard.py
+```
+
+Dashboard pokazuje Narwhal, HotStuff, SWIM, fault injection, communication log, recovery/checkpoint, gRPC demo, transport security i TOTP demo.
 
 ### Strict mode dla endpointow administracyjnych
 

@@ -44,6 +44,7 @@ SECTIONS = [
     "[101] gRPC contract",
     "[102] Dashboard and communication contract",
     "[103] Schedule full compliance contract",
+    "[104] gRPC runtime demo",
 ]
 
 

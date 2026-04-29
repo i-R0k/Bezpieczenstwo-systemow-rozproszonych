@@ -36,6 +36,30 @@ Response: `proto_path`, `service`, lista `methods`, `implementation_level="contr
 
 Typowe bledy: brak.
 
+### GET `/bft/grpc/runtime/status`
+
+Opis: zwraca status lokalnego runtime demo gRPC.
+
+Request: brak body.
+
+Response: `proto_path`, `generated`, `service`, `methods`, `implementation_level="demo-runtime"`, `runtime_demo_available` oraz note z ograniczeniem do `SendSwimPing`.
+
+Typowe bledy: brak; `generated=false`, jesli zaleznosci `grpcio-tools` nie sa dostepne.
+
+### POST `/bft/grpc/runtime/ping-demo`
+
+Opis: uruchamia lokalny serwer gRPC na `127.0.0.1:0`, wysyla klientem `SendSwimPing`, zapisuje event `grpc_swim_ping_received` i zatrzymuje serwer.
+
+Request: query parametry `source_node_id` i `target_node_id`.
+
+Response:
+
+```json
+{"accepted":true,"source_node_id":2,"target_node_id":1,"nonce":"...","status":"ALIVE","reason":"grpc_demo_ack"}
+```
+
+Typowe bledy: `401`/`403` w strict mode bez tokena admin, `503` gdy runtime gRPC nie moze zostac uruchomiony.
+
 ### GET `/bft/security/transport`
 
 Opis: zwraca status bezpiecznego transportu i podpisywania komunikatow.

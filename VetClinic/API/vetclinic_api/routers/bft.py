@@ -52,6 +52,16 @@ from vetclinic_api.bft.fault_injection.models import (
 from vetclinic_api.bft.fault_injection.replay import REPLAY_GUARD
 from vetclinic_api.bft.fault_injection.service import FaultInjectionService
 from vetclinic_api.bft.fault_injection.store import FAULT_STORE
+from vetclinic_api.bft.grpc_runtime.client import send_swim_ping
+from vetclinic_api.bft.grpc_runtime.compiler import compile_proto_to_tmp
+from vetclinic_api.bft.grpc_runtime.models import (
+    GrpcPingDemoResult,
+    GrpcRuntimeStatus,
+)
+from vetclinic_api.bft.grpc_runtime.server import (
+    start_grpc_demo_server,
+    stop_grpc_demo_server,
+)
 from vetclinic_api.bft.hotstuff.models import (
     CommitCertificate,
     HotStuffProposal,
@@ -565,6 +575,53 @@ def grpc_contract() -> dict:
         "implementation_level": "contract-only",
         "note": "FastAPI/in-memory testbed remains primary execution path",
     }
+
+
+@router.get("/grpc/runtime/status", response_model=GrpcRuntimeStatus)
+def grpc_runtime_status() -> GrpcRuntimeStatus:
+    generated = False
+    try:
+        compile_proto_to_tmp()
+        generated = True
+    except RuntimeError:
+        generated = False
+    return GrpcRuntimeStatus(
+        proto_path="proto/bft.proto",
+        generated=generated,
+        service="BftNodeService",
+        methods=GRPC_CONTRACT_METHODS,
+        implementation_level="demo-runtime",
+        runtime_demo_available=generated,
+        note=(
+            "Only SendSwimPing has a local runtime demo; full node-to-node "
+            "gRPC transport remains an extension."
+        ),
+    )
+
+
+@router.post(
+    "/grpc/runtime/ping-demo",
+    response_model=GrpcPingDemoResult,
+    dependencies=ADMIN_DEPENDENCIES,
+)
+def grpc_runtime_ping_demo(
+    source_node_id: int | None = Query(default=None, ge=1),
+    target_node_id: int = Query(default=2, ge=1),
+) -> GrpcPingDemoResult:
+    server = None
+    try:
+        server, bound_port = start_grpc_demo_server("127.0.0.1", 0, EVENT_LOG)
+        return send_swim_ping(
+            "127.0.0.1",
+            bound_port,
+            source_node_id=source_node_id or CONFIG.node_id,
+            target_node_id=target_node_id,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    finally:
+        if server is not None:
+            stop_grpc_demo_server(server)
 
 
 @router.get("/security/transport")

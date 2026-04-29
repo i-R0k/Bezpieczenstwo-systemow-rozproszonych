@@ -58,7 +58,9 @@ Replay protection wykrywa ponowna weryfikacje tego samego komunikatu. Projekt ni
 
 `proto/bft.proto` definiuje kontrakt transportowy `BftNodeService` dla docelowej komunikacji node-to-node. Obejmuje komunikaty Narwhal, HotStuff, SWIM i state transfer.
 
-Endpoint `/bft/grpc/contract` zwraca sciezke proto, nazwe serwisu, liste metod i `implementation_level=contract-only`. FastAPI/in-memory testbed pozostaje podstawowa sciezka wykonania.
+Endpoint `/bft/grpc/contract` zwraca sciezke proto, nazwe serwisu i liste metod. Pakiet `vetclinic_api.bft.grpc_runtime` dodaje lokalny runtime demo: dynamiczna kompilacja `.proto`, lokalny server/client gRPC i metoda `SendSwimPing`, ktora zapisuje `grpc_swim_ping_received` do `EventLog`.
+
+FastAPI/in-memory testbed pozostaje podstawowa sciezka wykonania. Pelny transport Narwhal/HotStuff/state transfer po gRPC pozostaje rozszerzeniem.
 
 ## 11. mTLS demo tooling
 
@@ -101,7 +103,7 @@ Nie wymaga Dockera, uvicorn, GUI, Prometheus ani Grafany.
 
 ## 17. Ograniczenia implementacji
 
-Implementacja jest in-memory, demonstracyjna i edukacyjna. Nie ma trwalej bazy stanu BFT, prawdziwego transportu sieciowego BFT miedzy procesami, aktywnego runtime gRPC, produkcyjnej konfiguracji mTLS ani paper-grade implementacji Narwhal, HotStuff i SWIM.
+Implementacja jest in-memory, demonstracyjna i edukacyjna. Nie ma trwalej bazy stanu BFT, pelnego transportu sieciowego BFT miedzy procesami, produkcyjnej konfiguracji mTLS ani paper-grade implementacji Narwhal, HotStuff i SWIM. gRPC ma lokalny runtime demo tylko dla `SendSwimPing`.
 
 Pelna lista ograniczen znajduje sie w `docs/OGRANICZENIA.md`.
 
