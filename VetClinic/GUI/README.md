@@ -19,6 +19,8 @@ python VetClinic/GUI/run_bft_dashboard.py
 python VetClinic/GUI/run_bft_dashboard.py --base-url http://127.0.0.1:8000
 ```
 
+`requirements-gui.txt` instaluje PyQt5 jako stabilny fallback. Kod dashboardu uzywa PyQt6, jesli jest juz dostepny w srodowisku projektu, a w przeciwnym razie przechodzi na PyQt5.
+
 Strict mode z tokenem admina:
 
 ```powershell

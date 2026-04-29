@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -32,6 +33,20 @@ def test_bft_api_client_builds_urls_and_admin_header() -> None:
 
     assert client._url("/bft/status") == "http://127.0.0.1:8000/bft/status"
     assert client._headers() == {"X-BFT-Admin-Token": "secret-token"}
+
+
+def test_bft_dashboard_runner_help_returns_cli_options() -> None:
+    completed = subprocess.run(
+        [sys.executable, "VetClinic/GUI/run_bft_dashboard.py", "--help"],
+        cwd=ROOT,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+
+    assert completed.returncode == 0
+    assert "--base-url" in completed.stdout
+    assert "--admin-token" in completed.stdout
 
 
 def test_bft_dashboard_window_initializes_with_expected_tabs(qapp) -> None:
