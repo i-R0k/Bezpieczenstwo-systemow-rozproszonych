@@ -1,3 +1,5 @@
+# GUI dependencies. PyQt5 is the supported fallback; the dashboard also uses
+# PyQt6 automatically when it is already installed in the local environment.
 PyQt5==5.15.11
 PyQt5_sip==12.17.0
 requests==2.32.4

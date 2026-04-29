@@ -56,3 +56,5 @@ Projekt jest demonstracyjna i edukacyjna implementacja warstwy BFT oraz testow b
 - Strict mode jest demonstracyjnym hardeningiem administracyjnych endpointow, nie pelnym IAM.
 - Pentest harness jest lokalny i ograniczony do `localhost`/`127.0.0.1`.
 - ZAP, Nuclei i ffuf sa opcjonalne; brak narzedzia skutkuje statusem `skipped`, a nie awaria podstawowych testow.
+- Raporty security/pentest sa generowane lokalnie do `reports/` albo `pentest/reports/` i sa ignorowane przez git poza plikami `.gitkeep`.
+- `certs/demo` sluzy do lokalnego generowania prywatnych kluczy i certyfikatow demo; te pliki nie powinny byc commitowane.

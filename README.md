@@ -204,6 +204,7 @@ python scripts/generate_demo_certs.py --nodes 2 --out /tmp/bsr-certs --force
 
 ## Dokumentacja
 
+- `docs/REPO_LAYOUT.md`
 - `docs/ARCHITEKTURA.md`
 - `docs/NARWHAL.md`
 - `docs/HOTSTUFF.md`
@@ -231,3 +232,12 @@ python scripts/generate_demo_certs.py --nodes 2 --out /tmp/bsr-certs --force
 ## Ograniczenia
 
 Implementacja jest demonstracyjna, edukacyjna i in-memory. Nie jest produkcyjnym systemem BFT, nie ma produkcyjnie wymuszonego mTLS, trwalej bazy stanu BFT ani paper-grade implementacji Narwhal/HotStuff/SWIM. gRPC jest obecnie kontraktem `.proto`, mTLS toolingiem demo, a 2FA/TOTP minimalnym flow in-memory. Szczegoly sa opisane w `docs/OGRANICZENIA.md`.
+
+## Struktura repozytorium
+
+Opis katalogow znajduje sie w `docs/REPO_LAYOUT.md`.
+
+- `requirements-api.txt` - backend/API/CI.
+- `requirements-gui.txt` - PyQt GUI.
+- `requirements-security.txt` - security tools.
+- `requirements.txt` - pelny lokalny bundle developerski API + GUI.

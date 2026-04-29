@@ -1,32 +1,53 @@
-# ─── Python byte‑compiled / optimized files ───────────────────────────────
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
 
-# ─── pytest cache ───────────────────────────────────────────────────────
-.pytest_cache/           # katalog cache dla pytest :contentReference[oaicite:0]{index=0}
-
-# ─── Visual Studio Code ────────────────────────────────────────────────
-.vscode/                 # ustawienia IDE :contentReference[oaicite:1]{index=1}
-
-# ─── wirtualne środowiska ─────────────────────────────────────────────
-venv/
-.env/
+# Virtual environments
 .venv/
+venv/
+env/
 
-# ─── dystrybucja / packaging ──────────────────────────────────────────
-build/
-dist/
-*.egg-info/
-*.egg
-
-# ─── pliki systemowe ───────────────────────────────────────────────────
+# IDE / OS
+.vscode/
+.idea/
 .DS_Store
-VetClinic/API/.env
+
+# Logs
+*.log
+
+# Environment / secrets
 .env
 *.env
+VetClinic/API/.env
+
+# Generated reports
+reports/**
+!reports/.gitkeep
+pentest/reports/**
+!pentest/reports/.gitkeep
+
+# Generated gRPC
+.generated_grpc/
+**/.generated_grpc/
+
+# Demo certs
 certs/demo/*.key
 certs/demo/*.crt
 certs/demo/*.csr
 certs/demo/*.pem
 certs/demo/*.srl
+certs/demo/*
+!certs/demo/.gitkeep
+!certs/demo/README.md
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+*.egg
