@@ -25,3 +25,8 @@ dist/
 VetClinic/API/.env
 .env
 *.env
+certs/demo/*.key
+certs/demo/*.crt
+certs/demo/*.csr
+certs/demo/*.pem
+certs/demo/*.srl

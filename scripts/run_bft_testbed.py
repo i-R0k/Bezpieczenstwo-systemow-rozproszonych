@@ -41,6 +41,9 @@ SECTIONS = [
     "[37] Metrics duplicate registration",
     "[98] Final delivery contract",
     "[99] Documentation contract",
+    "[101] gRPC contract",
+    "[102] Dashboard and communication contract",
+    "[103] Schedule full compliance contract",
 ]
 
 

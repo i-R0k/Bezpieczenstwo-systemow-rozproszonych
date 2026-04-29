@@ -1,0 +1,21 @@
+# Example TLS override for local demo only.
+# Full mTLS enforcement requires a reverse proxy (nginx/envoy/traefik)
+# or gRPC TLS credentials. This file is not used by the default testbed.
+
+services:
+  node1:
+    volumes:
+      - ./certs/demo:/certs/demo:ro
+    command:
+      - uvicorn
+      - vetclinic_api.main:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8443"
+      - --ssl-certfile
+      - /certs/demo/node1.crt
+      - --ssl-keyfile
+      - /certs/demo/node1.key
+    ports:
+      - "8443:8443"

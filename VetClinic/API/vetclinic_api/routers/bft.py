@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import uuid
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Response
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
 from vetclinic_api.bft import apply_fastapi_compat
@@ -91,6 +93,8 @@ from vetclinic_api.bft.swim.service import SwimService
 from vetclinic_api.bft.swim.store import SWIM_STORE
 from vetclinic_api.cluster.config import CONFIG
 from vetclinic_api.security_mode import get_max_list_limit, require_admin_token
+from vetclinic_api.security_mode import is_strict_mode
+from vetclinic_api.security.totp import verify_totp_code
 
 apply_fastapi_compat()
 
@@ -133,6 +137,17 @@ RECOVERY_SERVICE = RecoveryService(
 )
 LAST_DEMO_REPORT: BftDemoReport | None = None
 ADMIN_DEPENDENCIES = [Depends(require_admin_token)]
+STATIC_DIR = Path(__file__).resolve().parents[1] / "static"
+GRPC_CONTRACT_METHODS = [
+    "SendBatch",
+    "SendBatchAck",
+    "SendProposal",
+    "SendVote",
+    "SendSwimPing",
+    "SendSwimGossip",
+    "SendStateTransferRequest",
+    "SendStateTransferResponse",
+]
 
 
 class NarwhalAckRequest(BaseModel):
@@ -196,6 +211,11 @@ class CryptoSignRequest(BaseModel):
     operation_id: str | None = None
     correlation_id: str | None = None
     body: dict[str, Any] = Field(default_factory=dict)
+
+
+class SecureDemoClientOperationInput(ClientOperationInput):
+    totp_secret: str | None = None
+    totp_code: str | None = None
 
 
 def _node_count() -> int:
@@ -346,6 +366,66 @@ def _ensure_consensus_eligible(node_id: int, role: str) -> None:
         )
 
 
+def _safe_event_details(details: dict[str, Any]) -> dict[str, Any]:
+    blocked_fragments = ("private_key", "private_key_b64", "BFT_ADMIN_TOKEN", "LEADER_PRIV_KEY")
+    safe_details: dict[str, Any] = {}
+    for key, value in (details or {}).items():
+        if any(fragment.lower() in str(key).lower() for fragment in blocked_fragments):
+            safe_details[key] = "[redacted]"
+        elif key == "signed_message":
+            safe_details[key] = "[signed_message_omitted]"
+        elif isinstance(value, dict):
+            safe_details[key] = _safe_event_details(value)
+        elif isinstance(value, list):
+            safe_details[key] = [
+                _safe_event_details(item) if isinstance(item, dict) else item
+                for item in value
+            ]
+        else:
+            safe_details[key] = value
+    return safe_details
+
+
+def _detail_value(details: dict[str, Any], key: str) -> Any:
+    value = details.get(key)
+    if hasattr(value, "value"):
+        return value.value
+    return value
+
+
+def _event_to_communication_message(event: ProtocolEvent) -> dict[str, Any]:
+    details = event.details or {}
+    message_kind = _detail_value(details, "message_kind")
+    source_node_id = _detail_value(details, "source_node_id")
+    target_node_id = _detail_value(details, "target_node_id")
+    signed_message_id = _detail_value(details, "signed_message_id")
+    if signed_message_id is None and isinstance(details.get("signed_message_ids"), list):
+        signed_message_id = ",".join(str(item) for item in details["signed_message_ids"])
+    if source_node_id is None:
+        source_node_id = event.node_id
+    return {
+        "timestamp": event.timestamp.isoformat(),
+        "protocol": event.protocol.value if hasattr(event.protocol, "value") else str(event.protocol),
+        "message": event.message,
+        "message_kind": message_kind,
+        "source_node_id": source_node_id,
+        "target_node_id": target_node_id,
+        "operation_id": event.operation_id,
+        "details": {
+            **_safe_event_details(details),
+            **({"signed_message_id": signed_message_id} if signed_message_id else {}),
+        },
+    }
+
+
+@router.get("/dashboard", response_class=HTMLResponse)
+def bft_dashboard() -> HTMLResponse:
+    dashboard = STATIC_DIR / "bft_dashboard.html"
+    if not dashboard.exists():
+        raise HTTPException(status_code=404, detail="BFT dashboard not found")
+    return HTMLResponse(dashboard.read_text(encoding="utf-8"))
+
+
 @router.get("/architecture")
 def architecture() -> dict:
     swim_status = SWIM_SERVICE.status(CONFIG.node_id)
@@ -401,6 +481,12 @@ def architecture() -> dict:
             "health_endpoint": "/bft/observability/health",
             "demo_runner_available": True,
             "last_demo_status": LAST_DEMO_REPORT.status if LAST_DEMO_REPORT else None,
+        },
+        "security": {
+            "message_signing": True,
+            "replay_protection": True,
+            "mtls_runtime_enabled": False,
+            "totp_demo_available": True,
         },
     }
 
@@ -467,6 +553,29 @@ def protocols() -> dict:
                 "limitations": "Prometheus/Grafana are optional; testbed uses local metrics snapshot",
             },
         ]
+    }
+
+
+@router.get("/grpc/contract")
+def grpc_contract() -> dict:
+    return {
+        "proto_path": "proto/bft.proto",
+        "service": "BftNodeService",
+        "methods": GRPC_CONTRACT_METHODS,
+        "implementation_level": "contract-only",
+        "note": "FastAPI/in-memory testbed remains primary execution path",
+    }
+
+
+@router.get("/security/transport")
+def security_transport() -> dict:
+    return {
+        "message_signing": True,
+        "replay_protection": True,
+        "mtls_runtime_enabled": False,
+        "demo_cert_tooling": True,
+        "docs": "docs/MTLS.md",
+        "limitation": "mTLS documented/demo tooling only; not enforced in default runtime",
     }
 
 
@@ -596,6 +705,18 @@ def list_events(limit: int = Query(default=100, ge=0, le=get_max_list_limit())) 
     return {
         "events": EVENT_LOG.list(limit=limit),
         "limit": limit,
+    }
+
+
+@router.get("/communication/log")
+def communication_log(limit: int = Query(default=100, ge=0, le=get_max_list_limit())) -> dict:
+    try:
+        messages = [_event_to_communication_message(event) for event in EVENT_LOG.list(limit=limit)]
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {
+        "messages": messages,
+        "count": len(messages),
     }
 
 
@@ -1427,9 +1548,42 @@ def submit_client_operation(input: ClientOperationInput) -> ClientOperation:
             "sender": operation.sender,
             "recipient": operation.recipient,
             "amount": operation.amount,
+            "source_node_id": CONFIG.node_id,
+            "target_node_id": None,
+            "message_kind": MessageKind.CLIENT_OPERATION.value,
         },
     )
     return operation
+
+
+@router.post("/client/submit-secure-demo")
+def submit_secure_demo_operation(input: SecureDemoClientOperationInput) -> dict:
+    if is_strict_mode():
+        if not input.totp_secret or not input.totp_code:
+            raise HTTPException(status_code=401, detail="TOTP is required in strict mode")
+        if not verify_totp_code(input.totp_secret, input.totp_code):
+            raise HTTPException(status_code=403, detail="Invalid TOTP code")
+        warning = None
+    else:
+        warning = None
+        if not input.totp_secret or not input.totp_code:
+            warning = "Demo mode accepted operation without TOTP"
+        elif not verify_totp_code(input.totp_secret, input.totp_code):
+            warning = "Demo mode accepted operation despite invalid TOTP"
+
+    operation_input = ClientOperationInput(
+        sender=input.sender,
+        recipient=input.recipient,
+        amount=input.amount,
+        payload=input.payload,
+    )
+    operation = submit_client_operation(operation_input)
+    return {
+        "operation": operation,
+        "totp_required": is_strict_mode(),
+        "totp_verified": bool(input.totp_secret and input.totp_code and verify_totp_code(input.totp_secret, input.totp_code)),
+        "warning": warning,
+    }
 
 
 @router.get("/operations")

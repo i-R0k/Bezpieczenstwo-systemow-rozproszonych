@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BFT Dashboard</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f9;
+      --panel: #ffffff;
+      --line: #d9dee7;
+      --text: #1d2430;
+      --muted: #667085;
+      --accent: #1769aa;
+      --ok: #0f7b4f;
+      --warn: #a15c00;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font: 14px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background: var(--bg);
+    }
+    header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--line);
+      background: var(--panel);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    h1 { font-size: 20px; margin: 0; }
+    h2 { font-size: 15px; margin: 0 0 10px; }
+    main {
+      padding: 16px;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+    section {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      padding: 12px;
+      min-height: 140px;
+    }
+    .wide { grid-column: span 2; }
+    .full { grid-column: 1 / -1; }
+    .metric {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+      padding: 5px 0;
+      border-bottom: 1px solid #eef1f5;
+    }
+    .metric:last-child { border-bottom: 0; }
+    .label { color: var(--muted); }
+    .value { font-weight: 650; }
+    .ok { color: var(--ok); }
+    .warn { color: var(--warn); }
+    table { width: 100%; border-collapse: collapse; }
+    th, td {
+      padding: 7px 8px;
+      text-align: left;
+      border-bottom: 1px solid #eef1f5;
+      vertical-align: top;
+    }
+    th { color: var(--muted); font-weight: 600; }
+    code {
+      background: #eef3f8;
+      padding: 1px 4px;
+      border-radius: 4px;
+      font-size: 12px;
+    }
+    .error { color: #b42318; }
+    @media (max-width: 1000px) {
+      main { grid-template-columns: 1fr; }
+      .wide, .full { grid-column: auto; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>BFT Dashboard</h1>
+    <span id="updated" class="label">loading</span>
+  </header>
+  <main>
+    <section>
+      <h2>Cluster nodes</h2>
+      <div id="cluster"></div>
+    </section>
+    <section>
+      <h2>SWIM membership</h2>
+      <div id="swim"></div>
+    </section>
+    <section>
+      <h2>HotStuff current view / leader / commits</h2>
+      <div id="hotstuff"></div>
+    </section>
+    <section>
+      <h2>Narwhal DAG summary</h2>
+      <div id="narwhal"></div>
+    </section>
+    <section>
+      <h2>Fault injection summary</h2>
+      <div id="faults"></div>
+    </section>
+    <section>
+      <h2>Checkpoint/recovery summary</h2>
+      <div id="recovery"></div>
+    </section>
+    <section>
+      <h2>Crypto/security summary</h2>
+      <div id="crypto"></div>
+    </section>
+    <section class="wide">
+      <h2>Recent events</h2>
+      <div id="events"></div>
+    </section>
+    <section class="full">
+      <h2>Communication log</h2>
+      <div id="communication"></div>
+    </section>
+  </main>
+  <script>
+    const endpoints = {
+      status: "/bft/status",
+      events: "/bft/events",
+      swim: "/bft/swim/status",
+      hotstuff: "/bft/hotstuff/status",
+      narwhal: "/bft/narwhal/dag",
+      faults: "/bft/faults/status",
+      checkpointing: "/bft/checkpointing/status",
+      recovery: "/bft/recovery/status",
+      communication: "/bft/communication/log"
+    };
+
+    const safe = value => value === null || value === undefined || value === "" ? "-" : String(value);
+    const json = async path => {
+      const res = await fetch(path);
+      if (!res.ok) throw new Error(`${path} -> ${res.status}`);
+      return res.json();
+    };
+    const metric = (label, value, cls = "") => `<div class="metric"><span class="label">${label}</span><span class="value ${cls}">${safe(value)}</span></div>`;
+    const table = (headers, rows) => {
+      const head = `<tr>${headers.map(h => `<th>${h}</th>`).join("")}</tr>`;
+      const body = rows.map(row => `<tr>${row.map(cell => `<td>${safe(cell)}</td>`).join("")}</tr>`).join("");
+      return `<table>${head}${body}</table>`;
+    };
+    const renderError = (id, err) => document.getElementById(id).innerHTML = `<span class="error">${err.message}</span>`;
+
+    async function refresh() {
+      try {
+        const [status, events, swim, hotstuff, narwhal, faults, checkpointing, recovery, communication] = await Promise.all([
+          json(endpoints.status),
+          json(endpoints.events),
+          json(endpoints.swim),
+          json(endpoints.hotstuff),
+          json(endpoints.narwhal),
+          json(endpoints.faults),
+          json(endpoints.checkpointing),
+          json(endpoints.recovery),
+          json(endpoints.communication)
+        ]);
+
+        const q = status.quorum?.summary || {};
+        document.getElementById("cluster").innerHTML = [
+          metric("total nodes", q.total_nodes),
+          metric("fault tolerance", q.fault_tolerance),
+          metric("quorum", q.quorum),
+          metric("status", status.architecture?.status, "ok")
+        ].join("");
+
+        document.getElementById("swim").innerHTML = [
+          metric("alive", swim.alive),
+          metric("suspect", swim.suspect, swim.suspect ? "warn" : ""),
+          metric("dead", swim.dead, swim.dead ? "warn" : ""),
+          metric("recovering", swim.recovering)
+        ].join("");
+
+        document.getElementById("hotstuff").innerHTML = [
+          metric("view", hotstuff.view?.current_view ?? hotstuff.current_view),
+          metric("leader", hotstuff.view?.leader_node_id ?? hotstuff.leader_node_id),
+          metric("proposals", hotstuff.proposals_count ?? (hotstuff.proposals || []).length),
+          metric("commits", hotstuff.commits_count ?? (hotstuff.commits || []).length)
+        ].join("");
+
+        document.getElementById("narwhal").innerHTML = [
+          metric("batches", narwhal.batches?.length ?? narwhal.batch_count),
+          metric("tips", narwhal.tips?.length ?? "-"),
+          metric("certificates", narwhal.certificates?.length ?? "-")
+        ].join("");
+
+        document.getElementById("faults").innerHTML = [
+          metric("rules", faults.rules?.length),
+          metric("partitions", faults.partitions?.length),
+          metric("injected", faults.injected_faults?.length)
+        ].join("");
+
+        document.getElementById("recovery").innerHTML = [
+          metric("snapshots", checkpointing.snapshots?.length),
+          metric("certificates", checkpointing.certificates?.length),
+          metric("state transfers", recovery.transfers?.length),
+          metric("recovered nodes", recovery.recovered_nodes?.length)
+        ].join("");
+
+        document.getElementById("crypto").innerHTML = [
+          metric("message signing", status.crypto?.signed_message_support, "ok"),
+          metric("replay guard", status.crypto?.replay_guard_enabled, "ok"),
+          metric("public keys", status.crypto?.registered_public_keys_count),
+          metric("mTLS runtime", status.security?.mtls_runtime_enabled ?? false)
+        ].join("");
+
+        const eventRows = (events.events || events || []).slice(-8).reverse().map(e => [
+          e.timestamp, e.protocol, e.status, e.operation_id, e.message
+        ]);
+        document.getElementById("events").innerHTML = table(["time", "protocol", "status", "operation", "message"], eventRows);
+
+        const commRows = (communication.messages || []).slice(-20).reverse().map(m => [
+          m.timestamp, m.protocol, m.message_kind, m.source_node_id, m.target_node_id, m.operation_id, m.message
+        ]);
+        document.getElementById("communication").innerHTML = table(["time", "protocol", "kind", "source", "target", "operation", "message"], commRows);
+        document.getElementById("updated").textContent = `updated ${new Date().toLocaleTimeString()}`;
+      } catch (err) {
+        ["cluster", "swim", "hotstuff", "narwhal", "faults", "recovery", "crypto", "events", "communication"].forEach(id => renderError(id, err));
+      }
+    }
+
+    refresh();
+    setInterval(refresh, 5000);
+  </script>
+</body>
+</html>

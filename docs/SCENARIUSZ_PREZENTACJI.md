@@ -1,10 +1,36 @@
 # Scenariusz prezentacji
 
-Ten przebieg miesci sie w 10-15 minutach. Najpierw pokazuje automatyczny testbed, potem ten sam zakres przez API.
+Ten przebieg jest przygotowany na okolo 15 minut. Kolejnosc pokazuje najpierw zgodnosc z harmonogramem i testy, a potem wybrane endpointy demonstracyjne.
 
-## Scenariusz 1: testbed automatyczny
+## 1. Repo i README
 
-Cel: pokazac, ze repo ma powtarzalny testbed bez Dockera.
+Cel: pokazac, ze README jest glownym landing page projektu.
+
+Pokaz:
+
+```text
+README.md
+```
+
+Co powiedziec prowadzacemu: projekt sklada sie z demonstratora BFT, starszej domeny VetClinic, security tests i lokalnego pentest harness. README prowadzi do dokumentow szczegolowych.
+
+## 2. Harmonogram
+
+Cel: pokazac jawne mapowanie wymagan na implementacje.
+
+Pokaz:
+
+```text
+docs/ZGODNOSC_Z_HARMONOGRAMEM.md
+```
+
+Oczekiwany wynik: tabela ma status dla kazdego obszaru, w tym gRPC, mTLS, 2FA, GUI, komunikacji miedzy procesami i pentestu.
+
+Co powiedziec prowadzacemu: elementy kontraktowe albo demonstracyjne nie sa opisane jako produkcyjne; gRPC runtime i produkcyjne mTLS sa oznaczone jako ograniczone.
+
+## 3. BFT testbed
+
+Cel: pokazac powtarzalne testy bez Dockera.
 
 Komenda:
 
@@ -12,146 +38,123 @@ Komenda:
 python scripts/run_bft_testbed.py
 ```
 
-Oczekiwany wynik: runner wypisuje sekcje testow, pytest konczy sie wynikiem pozytywnym.
+Oczekiwany wynik: runner wypisuje sekcje testow, w tym `[103] Schedule full compliance contract`, a pytest konczy sie sukcesem.
 
-Co powiedziec prowadzacemu: testbed sprawdza kontrakty Narwhal, HotStuff, SWIM, fault injection, checkpointing, recovery, crypto, observability, final demo i dokumentacje.
+## 4. Security testbed
 
-## Scenariusz 2: demo API
+Cel: pokazac testy bezpieczenstwa calego projektu.
 
-Cel: pokazac finalny happy path przez endpoint.
-
-Komendy albo endpointy:
+Komenda:
 
 ```powershell
-$env:PYTHONPATH="VetClinic/API"
-python -m uvicorn vetclinic_api.main:app --host 127.0.0.1 --port 8001 --reload
-curl.exe -X POST http://127.0.0.1:8001/bft/demo/run
-curl.exe http://127.0.0.1:8001/bft/demo/last-report
+python scripts/run_security_testbed.py
 ```
 
-Oczekiwany wynik: `status` ma wartosc `ok`, operacja konczy jako `EXECUTED`, raport ma `checkpoint_id`, `recovered_node_id` i `metrics_snapshot`.
+Oczekiwany wynik: testy security przechodza lokalnie bez Dockera i uvicorn.
 
-Co powiedziec prowadzacemu: jeden endpoint uruchamia pelna demonstracje protokolow i zapisuje raport do pozniejszego odczytu.
+## 5. Pentest quick
 
-## Scenariusz 3: Narwhal
+Cel: pokazac lokalny, kontrolowany harness pentestowy.
 
-Cel: pokazac batch, certyfikat data availability i DAG.
+Komenda:
+
+```powershell
+python scripts/run_pentest_local.py --quick
+```
+
+Oczekiwany wynik: skrypt uruchamia lekkie probe HTTP dla localhost i zapisuje raport w `reports/pentest/<timestamp>/`.
+
+Co powiedziec prowadzacemu: harness ma blokade localhost-only i nie sluzy do skanowania cudzych hostow.
+
+## 6. Status BFT
+
+Cel: pokazac zagregowany stan systemu.
+
+Endpoint:
+
+```text
+GET /bft/status
+```
+
+Oczekiwany wynik: odpowiedz zawiera podsumowanie architektury, quorum, Narwhal, HotStuff, SWIM, fault injection, checkpointing, recovery, crypto i observability.
+
+## 7. Demo koncowe API
+
+Cel: pokazac pelny happy path przez jeden endpoint.
 
 Endpointy:
 
 ```text
-POST /bft/client/submit
-POST /bft/narwhal/batches
-POST /bft/narwhal/batches/{batch_id}/certify-demo
-GET  /bft/narwhal/dag
+POST /bft/demo/run
+GET  /bft/demo/last-report
 ```
 
-Oczekiwany wynik: operacja przechodzi z `RECEIVED` do `BATCHED` i `AVAILABLE`, a DAG zawiera batch jako wierzcholek.
+Oczekiwany wynik: raport ma `status=ok`, `final_operation_status=EXECUTED`, `checkpoint_id`, `recovered_node_id` i `metrics_snapshot`.
 
-Co powiedziec prowadzacemu: Narwhal oddziela dostepnosc danych od konsensusu; w projekcie jest to lokalny, in-memory kontrakt demonstracyjny.
+## 8. Dashboard
 
-## Scenariusz 4: HotStuff
+Cel: pokazac prosta wizualizacje topologii, membership, konsensusu, recovery i zdarzen.
 
-Cel: pokazac proposal, QC i commit.
+Endpoint:
+
+```text
+GET /bft/dashboard
+```
+
+Oczekiwany wynik: HTML dashboard pokazuje Cluster nodes, SWIM membership, HotStuff, Narwhal, fault injection, checkpoint/recovery, crypto/security, recent events i communication log.
+
+Co powiedziec prowadzacemu: dashboard korzysta z polling/fetch i logicznego `EventLog`, a nie z WebSocket ani packet capture.
+
+## 9. gRPC i .proto
+
+Cel: pokazac domkniecie punktu harmonogramu dotyczacego kontraktu transportowego.
+
+Pokaz:
+
+```text
+proto/bft.proto
+GET /bft/grpc/contract
+```
+
+Oczekiwany wynik: `.proto` zawiera `BftNodeService`, a endpoint zwraca `implementation_level=contract-only`.
+
+Co powiedziec prowadzacemu: podstawowa sciezka wykonania nadal dziala przez FastAPI/in-memory; pelny runtime gRPC jest kierunkiem rozwoju.
+
+## 10. 2FA/TOTP
+
+Cel: pokazac minimalny flow 2FA bez przebudowy modelu uzytkownikow.
 
 Endpointy:
 
 ```text
-POST /bft/hotstuff/proposals
-POST /bft/hotstuff/proposals/{proposal_id}/form-qc-demo
-POST /bft/hotstuff/qc/{qc_id}/commit
-GET  /bft/hotstuff/status
+POST /security/2fa/demo/setup
+POST /security/2fa/demo/verify
 ```
 
-Oczekiwany wynik: powstaje proposal, quorum certificate i commit certificate.
+Oczekiwany wynik: setup zwraca `secret` i `otpauth://` provisioning URI, a verify rozroznia poprawny i bledny kod TOTP.
 
-Co powiedziec prowadzacemu: HotStuff konsumuje certyfikowany batch Narwhal i tworzy logiczne zatwierdzenie operacji.
+## 11. Certyfikaty TLS/mTLS
 
-## Scenariusz 5: SWIM
+Cel: pokazac tooling certyfikatow demo.
 
-Cel: pokazac membership i failure detection.
+Komenda:
 
-Endpointy:
+```powershell
+python scripts/generate_demo_certs.py --nodes 2 --out /tmp/bsr-certs --force
+```
+
+Oczekiwany wynik: powstaje demo CA oraz certyfikaty node1 i node2 w katalogu wyjsciowym.
+
+Co powiedziec prowadzacemu: runtime domyslny nie wymusza mTLS; repo zawiera dokumentacje, generator certyfikatow i przyklad TLS.
+
+## 12. Ograniczenia
+
+Cel: pokazac uczciwy zakres projektu.
+
+Pokaz:
 
 ```text
-POST /bft/swim/bootstrap
-POST /bft/swim/ping/{target_node_id}?simulate_success=false
-POST /bft/swim/probe-demo/{target_node_id}
-PUT  /bft/swim/members/{node_id}/dead
-GET  /bft/swim/status
+docs/OGRANICZENIA.md
 ```
 
-Oczekiwany wynik: wezel zmienia status na `SUSPECT` albo `DEAD`.
-
-Co powiedziec prowadzacemu: status czlonka klastra jest uzywany przez HotStuff do odrzucania niepoprawnych glosujacych albo proposerow.
-
-## Scenariusz 6: fault injection
-
-Cel: pokazac kontrolowane awarie komunikatow.
-
-Endpointy:
-
-```text
-POST /bft/faults/rules
-POST /bft/faults/evaluate
-GET  /bft/faults/status
-DELETE /bft/faults
-```
-
-Przyklad reguly: `DROP` dla `HOTSTUFF` i `VOTE`.
-
-Oczekiwany wynik: `FaultDecision` pokazuje zablokowany komunikat.
-
-Co powiedziec prowadzacemu: testy nie czekaja realnie na opoznienia; fault injection jest deterministyczny i szybki.
-
-## Scenariusz 7: checkpoint/recovery
-
-Cel: pokazac snapshot, state transfer i powrot wezla.
-
-Endpointy:
-
-```text
-POST /bft/checkpointing/snapshots
-POST /bft/checkpointing/snapshots/{snapshot_id}/certify
-PUT  /bft/swim/members/{node_id}/recovering
-POST /bft/recovery/nodes/{node_id}/recover-demo
-GET  /bft/recovery/status
-```
-
-Oczekiwany wynik: recovery stosuje checkpoint, hash stanu jest zgodny, a wezel wraca do `ALIVE`.
-
-Co powiedziec prowadzacemu: state transfer jest lokalnym modelem edukacyjnym, ale kontrakt obejmuje identyfikator checkpointu i hash stanu.
-
-## Scenariusz 8: crypto/replay
-
-Cel: pokazac podpisy i replay protection.
-
-Endpointy:
-
-```text
-POST /bft/crypto/demo-keys
-POST /bft/crypto/sign
-POST /bft/crypto/verify
-POST /bft/crypto/verify
-```
-
-Oczekiwany wynik: pierwsza weryfikacja zwraca `valid=true`, druga tego samego komunikatu zwraca `replay=true`.
-
-Co powiedziec prowadzacemu: podpis obejmuje canonical JSON, nonce i body, a replay guard odrzuca ponowne uzycie `message_id`.
-
-## Scenariusz 9: observability
-
-Cel: pokazac stan systemu i metryki.
-
-Endpointy:
-
-```text
-GET /bft/observability/health
-GET /bft/observability/metrics
-GET /bft/observability/metrics/snapshot
-GET /bft/demo/last-report
-```
-
-Oczekiwany wynik: health nie zwraca 500, metryki sa w formacie Prometheus, raport demo zawiera kroki i snapshot metryk.
-
-Co powiedziec prowadzacemu: obserwowalnosc jest czescia kontraktu projektu i jest testowana automatycznie.
+Co powiedziec prowadzacemu: ograniczenia sa jawne: in-memory state, brak pelnego runtime gRPC, brak produkcyjnego mTLS, uproszczone 2FA, logiczna komunikacja miedzy wezlami i demonstracyjne Narwhal/HotStuff/SWIM.

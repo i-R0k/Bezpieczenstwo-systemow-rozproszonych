@@ -26,6 +26,46 @@ Response: lista modulow BFT.
 
 Typowe bledy: brak.
 
+### GET `/bft/grpc/contract`
+
+Opis: zwraca informacyjny kontrakt gRPC/protobuf dla docelowej komunikacji node-to-node. Endpoint nie uruchamia runtime gRPC.
+
+Request: brak body.
+
+Response: `proto_path`, `service`, lista `methods`, `implementation_level="contract-only"` i note, ze FastAPI/in-memory testbed pozostaje podstawowa sciezka wykonania.
+
+Typowe bledy: brak.
+
+### GET `/bft/security/transport`
+
+Opis: zwraca status bezpiecznego transportu i podpisywania komunikatow.
+
+Request: brak body.
+
+Response: `message_signing=true`, `replay_protection=true`, `mtls_runtime_enabled=false`, `demo_cert_tooling=true`, `docs="docs/MTLS.md"` oraz opis ograniczenia.
+
+Typowe bledy: brak.
+
+### GET `/bft/dashboard`
+
+Opis: zwraca demonstracyjny HTML dashboard dla BFT bez osobnego frontendu.
+
+Request: brak.
+
+Response: `text/html`.
+
+Typowe bledy: `404`, jesli plik dashboardu nie jest dostepny.
+
+### GET `/bft/communication/log`
+
+Opis: zwraca logiczny dziennik komunikacji miedzy wezlami na podstawie `EventLog`.
+
+Request: opcjonalny query param `limit`, domyslnie `100`.
+
+Response: `messages` oraz `count`. Kazdy wpis zawiera `timestamp`, `protocol`, `message`, `message_kind`, `source_node_id`, `target_node_id`, `operation_id`, `details`.
+
+Typowe bledy: `422` dla niepoprawnego limitu.
+
 ### GET `/bft/quorum`
 
 Opis: zwraca konfiguracje quorum `2f + 1` dla aktualnej liczby wezlow.
@@ -57,6 +97,20 @@ Response: liczba usunietych zdarzen.
 Typowe bledy: brak.
 
 ## Operations
+
+### POST `/bft/client/submit-secure-demo`
+
+Opis: demonstracyjna wersja submitu klienta z opcjonalnym TOTP. W demo mode brak TOTP jest akceptowany z warningiem. W strict mode poprawny kod TOTP jest wymagany.
+
+Request:
+
+```json
+{"sender":"alice","recipient":"bob","amount":10.5,"payload":{"kind":"demo"},"totp_secret":"BASE32","totp_code":"123456"}
+```
+
+Response: obiekt `operation`, `totp_required`, `totp_verified`, `warning`.
+
+Typowe bledy: `401` gdy strict mode wymaga TOTP, `403` dla niepoprawnego kodu.
 
 ### POST `/bft/client/submit`
 

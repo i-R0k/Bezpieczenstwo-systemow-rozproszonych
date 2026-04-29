@@ -1,41 +1,57 @@
 # Ograniczenia implementacji
 
-Projekt jest demonstracyjna implementacja edukacyjna warstwy BFT, przygotowana do prezentacji i analizy. Ponizsze ograniczenia sa swiadomym zakresem projektu, a nie ukrytymi bledami.
+Projekt jest demonstracyjna i edukacyjna implementacja warstwy BFT oraz testow bezpieczenstwa. Ograniczenia sa czescia jawnego zakresu projektu, a nie ukrytymi zalozeniami.
 
-## Stan i trwalosc
+## gRPC
 
-- Implementacja BFT dziala in-memory.
-- Nie ma trwalej bazy danych dla BFT state, DAG, QC, checkpointow ani recovery.
-- Restart procesu API czysci stan demonstracyjny.
+- `proto/bft.proto` definiuje kontrakt docelowej komunikacji node-to-node.
+- Endpoint `/bft/grpc/contract` potwierdza obecny poziom `contract-only`.
+- Repo nie uruchamia serwera gRPC ani wygenerowanych stubow w podstawowej sciezce wykonania.
+- Testbed pozostaje oparty o FastAPI, serwisy in-memory i pytest.
 
-## Siec i procesy
+## mTLS
 
-- Testbed nie uruchamia prawdziwej sieci BFT miedzy osobnymi procesami.
-- Wezly sa modelowane logicznie przez `node_id`.
-- Docker Compose nadal zawiera bazowe serwisy projektu VetClinic i nie jest glowna sciezka testbedu BFT.
+- Runtime domyslny nie wymusza mTLS.
+- Endpoint `/bft/security/transport` zwraca `mtls_runtime_enabled=false`.
+- `scripts/generate_demo_certs.py` generuje certyfikaty demo, a `docker-compose.override.tls.example.yml` pokazuje przyklad TLS.
+- Produkcyjna konfiguracja mTLS wymagalaby proxy typu Envoy/nginx/Traefik albo gRPC TLS credentials oraz zarzadzania zaufaniem certyfikatow.
 
-## Protokoly
+## 2FA
+
+- 2FA/TOTP jest minimalnym flow demonstracyjnym.
+- Sekrety sa przechowywane in-memory w `TOTP_DEMO_STORE`.
+- Brakuje pelnego enrollmentu uzytkownika, QR rendering, recovery codes, resetu 2FA i audytu logowania.
+- Endpoint `/bft/client/submit-secure-demo` wymaga poprawnego TOTP tylko w strict mode.
+
+## GUI/dashboard
+
+- `/bft/dashboard` jest statycznym HTML dashboardem bez React/Vue.
+- Dashboard uzywa polling/fetch, bez WebSocket i bez push events.
+- `/bft/communication/log` pokazuje logiczny log zdarzen z `EventLog`.
+- To nie jest packet capture ani wizualizacja prawdziwego ruchu sieciowego.
+
+## Komunikacja miedzy procesami
+
+- Wezly BFT sa modelowane logicznie przez `node_id`.
+- Testbed nie uruchamia osobnych procesow BFT ani prawdziwego transportu node-to-node.
+- Docker Compose zawiera bazowe serwisy projektu, ale nie jest wymagany przez BFT/security/pentest tests.
+- Partycje, dropy i awarie dzialaja na poziomie lokalnych kontraktow service/router.
+
+## Trwalosc stanu
+
+- Stan BFT jest in-memory.
+- DAG Narwhal, QC/commity HotStuff, SWIM membership, checkpointy, recovery, replay guard i klucze demo znikaja po restarcie procesu.
+- Brak trwalej bazy danych dla BFT state.
+
+## Paper-grade Narwhal/HotStuff/SWIM
 
 - Narwhal, HotStuff i SWIM sa implementacjami demonstracyjnymi, nie pelnymi implementacjami paper-grade.
-- Narwhal nie wykonuje rzeczywistego broadcastu data availability miedzy procesami.
-- HotStuff formuje QC i commit lokalnie, bez produkcyjnego transportu i pipeline wielu widokow.
-- SWIM modeluje failure detection lokalnie, bez pelnego losowego gossipu w rozproszonej sieci.
+- Narwhal nie wykonuje rozproszonego broadcastu data availability.
+- HotStuff nie zawiera produkcyjnego pacemakera, pipeliningu wielu widokow ani rzeczywistego broadcastu glosow.
+- SWIM modeluje membership i failure detection lokalnie, bez pelnego losowego gossipu w sieci.
 
-## Fault injection
+## Security i pentest
 
-- Fault injection jest lokalny i deterministyczny.
-- `DELAY` w testach nie wykonuje realnych `sleep`, tylko zapisuje decyzje o opoznieniu.
-- Partycje i dropy blokuja lokalna sciezke service/router, nie prawdziwy interfejs sieciowy.
-
-## Bezpieczenstwo
-
-- Klucze demo sa in-memory.
-- Replay protection dziala w pamieci procesu.
-- mTLS nie jest produkcyjnie skonfigurowane.
-- Ed25519 i canonical JSON pokazuja kontrakt podpisanych komunikatow, ale nie zastepuja kompletnej infrastruktury kluczy.
-
-## GUI i monitoring
-
-- GUI nie jest glowna sciezka demonstracyjna BFT.
-- Prometheus/Grafana moga byc uzyte pomocniczo, ale testbed BFT nie wymaga ich uruchomienia.
-- Podstawowa demonstracja odbywa sie przez `scripts/run_bft_testbed.py`, Swagger UI i endpointy `/bft/*`.
+- Strict mode jest demonstracyjnym hardeningiem administracyjnych endpointow, nie pelnym IAM.
+- Pentest harness jest lokalny i ograniczony do `localhost`/`127.0.0.1`.
+- ZAP, Nuclei i ffuf sa opcjonalne; brak narzedzia skutkuje statusem `skipped`, a nie awaria podstawowych testow.

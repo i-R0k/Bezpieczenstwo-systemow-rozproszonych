@@ -23,6 +23,9 @@ SECTIONS = [
     "[15] Monitoring exposure",
     "[16] GUI static security",
     "[17] SAST/SCA wrappers",
+    "[18] mTLS contract",
+    "[19] TOTP/2FA contract",
+    "[20] Dashboard exposure security",
 ]
 
 

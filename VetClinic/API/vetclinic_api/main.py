@@ -32,6 +32,7 @@ from vetclinic_api.routers import (
     medical_records,
     payments,
     rpc,
+    security_demo,
     users,
     weight_logs,
 )
@@ -64,6 +65,7 @@ app.include_router(payments.router)
 app.include_router(rpc.router)
 app.include_router(cluster.router)
 app.include_router(admin.router)
+app.include_router(security_demo.router)
 app.include_router(bft.router)
 app.include_router(admin_network_router)
 

@@ -15,6 +15,10 @@ VetClinic pozostaje domena przykladowa i starsza warstwa aplikacyjna. BFT jest o
 - checkpoint i recovery: snapshot stanu, checkpoint certificate, state transfer i odtworzenie wezla.
 - crypto: Ed25519, canonical JSON, podpisy i replay protection.
 - observability: health, metryki i raport demo.
+- gRPC/protobuf contract: `proto/bft.proto` i endpoint `/bft/grpc/contract` jako kontrakt docelowej komunikacji node-to-node.
+- TLS/mTLS demo tooling: generator certyfikatow w `scripts/generate_demo_certs.py` i status `/bft/security/transport`.
+- 2FA/TOTP demo: `/security/2fa/demo/*` i opcjonalny `/bft/client/submit-secure-demo`.
+- dashboard BFT: `/bft/dashboard` oraz logiczny dziennik `/bft/communication/log`.
 - testbed: automatyczne testy kontraktowe i integracyjne bez Dockera.
 
 ## Szybki start bez Dockera
@@ -52,6 +56,23 @@ Zakres i model zagrozen:
 
 `scripts/run_security_tools.py` uruchamia lokalnie pytest security, Bandit i pip-audit, a Semgrep oraz Trivy tylko wtedy, gdy sa dostepne w PATH. ZAP baseline jest osobnym, manualnym workflow `.github/workflows/zap-baseline.yml`; na tym etapie jest non-blocking i generuje raport demonstracyjny.
 
+### Certyfikaty demo TLS/mTLS
+
+```powershell
+make generate-demo-certs
+python scripts/generate_demo_certs.py --nodes 6 --out certs/demo --force
+```
+
+Domyslny runtime nie wymusza mTLS. Endpoint `/bft/security/transport` pokazuje `mtls_runtime_enabled=false`; szczegoly sa w `docs/MTLS.md`.
+
+### 2FA/TOTP demo
+
+```powershell
+python -m pytest tests/security/test_19_totp_2fa_contract.py -q
+```
+
+Endpointy `/security/2fa/demo/setup` i `/security/2fa/demo/verify` pokazuja minimalny flow TOTP. W strict mode `/bft/client/submit-secure-demo` wymaga poprawnego kodu TOTP.
+
 ## Testy penetracyjne
 
 Pentest harness uruchamia kontrolowane, lokalne skany DAST. Safety guard ogranicza targety do `localhost` i `127.0.0.1`; nie sluzy do testowania cudzych hostow.
@@ -59,11 +80,12 @@ Pentest harness uruchamia kontrolowane, lokalne skany DAST. Safety guard ogranic
 ```powershell
 python scripts/run_pentest_local.py --quick
 make pentest-quick
+make pentest-zap
 make pentest-full
 make test-pentest
 ```
 
-Tryb `--full` dodaje opcjonalne narzedzia ZAP, Nuclei i ffuf, jesli sa dostepne lokalnie. Szczegoly i zasady uzycia sa w `pentest/README.md` oraz `docs/PENTEST.md`.
+Tryb `--quick` uruchamia tylko lekkie probe HTTP. `make pentest-zap` dodaje ZAP baseline. Tryb `--full` dodaje ZAP baseline/API scan oraz opcjonalne Nuclei i ffuf, jesli sa dostepne lokalnie. Koncowy raport powstaje jako `reports/pentest/<timestamp>/PENTEST_REPORT.md`. Szczegoly i zasady uzycia sa w `pentest/README.md` oraz `docs/PENTEST.md`.
 
 ### Strict mode dla endpointow administracyjnych
 
@@ -117,9 +139,31 @@ Po uruchomieniu API:
 ```text
 POST /bft/demo/run
 GET  /bft/demo/last-report
+GET  /bft/dashboard
+GET  /bft/communication/log
 ```
 
 Raport demo powinien zawierac `status=ok`, `final_operation_status=EXECUTED`, `checkpoint_id`, `recovered_node_id` i `metrics_snapshot`.
+
+## Zgodnosc z harmonogramem
+
+Glowne dokumenty zamykajace harmonogram:
+
+- `docs/ZGODNOSC_Z_HARMONOGRAMEM.md`
+- `docs/GRPC.md`
+- `docs/MTLS.md`
+- `docs/2FA_TOTP.md`
+- `docs/GUI_BFT.md`
+- `docs/PENTEST.md`
+
+Komendy prezentacyjne:
+
+```powershell
+python scripts/run_bft_testbed.py
+python scripts/run_security_testbed.py
+python scripts/run_pentest_local.py --quick
+python scripts/generate_demo_certs.py --nodes 2 --out /tmp/bsr-certs --force
+```
 
 ## Dokumentacja
 
@@ -142,7 +186,11 @@ Raport demo powinien zawierac `status=ok`, `final_operation_status=EXECUTED`, `c
 - `docs/THREAT_MODEL.md`
 - `docs/SECURITY_TEST_PLAN.md`
 - `docs/PENTEST.md`
+- `docs/GRPC.md`
+- `docs/MTLS.md`
+- `docs/2FA_TOTP.md`
+- `docs/GUI_BFT.md`
 
 ## Ograniczenia
 
-Implementacja jest demonstracyjna, edukacyjna i in-memory. Nie jest produkcyjnym systemem BFT, nie ma produkcyjnego mTLS, trwalej bazy stanu BFT ani paper-grade implementacji Narwhal/HotStuff/SWIM. Szczegoly sa opisane w `docs/OGRANICZENIA.md`.
+Implementacja jest demonstracyjna, edukacyjna i in-memory. Nie jest produkcyjnym systemem BFT, nie ma produkcyjnie wymuszonego mTLS, trwalej bazy stanu BFT ani paper-grade implementacji Narwhal/HotStuff/SWIM. gRPC jest obecnie kontraktem `.proto`, mTLS toolingiem demo, a 2FA/TOTP minimalnym flow in-memory. Szczegoly sa opisane w `docs/OGRANICZENIA.md`.

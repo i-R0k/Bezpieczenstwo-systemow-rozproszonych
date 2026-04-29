@@ -16,6 +16,28 @@ Strict mode nie jest pelnym IAM. Chroni demo endpointy administracyjne przed prz
 
 Endpointy publiczne, takie jak `GET /bft/status`, `GET /bft/architecture`, `GET /bft/protocols`, `GET /bft/observability/health` i `GET /bft/observability/metrics`, pozostaja dostepne bez tokena, o ile nie ujawniaja sekretow.
 
+## Transport TLS/mTLS
+
+Projekt rozdziela message-level security od transport security. BFT crypto zapewnia Ed25519 message signing i replay protection, natomiast mTLS jest obecnie udokumentowanym toolingiem demo:
+
+- `scripts/generate_demo_certs.py` generuje lokalne CA oraz certyfikaty `node1`..`node6` i klienta;
+- `certs/demo` jest ignorowany przez `.gitignore`;
+- `docker-compose.override.tls.example.yml` pokazuje lokalny TLS dla uvicorn;
+- `/bft/security/transport` zwraca `mtls_runtime_enabled=false`.
+
+Pelne mTLS przez nginx/Envoy/Traefik albo gRPC TLS credentials jest kierunkiem rozwoju, nie domyslnym runtime.
+
+## 2FA/TOTP
+
+Projekt zawiera minimalny demonstracyjny flow TOTP:
+
+- `POST /security/2fa/demo/setup` generuje sekret i `otpauth://` provisioning URI;
+- `POST /security/2fa/demo/verify` weryfikuje kod;
+- `DELETE /security/2fa/demo` jest chroniony w strict mode;
+- `POST /bft/client/submit-secure-demo` wymaga poprawnego TOTP w strict mode.
+
+Test `tests/security/test_19_totp_2fa_contract.py` sprawdza poprawny kod, bledny kod, endpointy demo oraz wariant strict dla BFT secure submit.
+
 ## Tabela testow
 
 | Component | Risk | Test file | Expected result | Tool |
@@ -54,6 +76,8 @@ Endpointy publiczne, takie jak `GET /bft/status`, `GET /bft/architecture`, `GET 
 - `tests/security/test_15_monitoring_exposure.py` - brak sekretow w health/metrics, Prometheus i Grafana provisioning.
 - `tests/security/test_16_gui_static_security.py` - statyczny skan GUI pod katem `eval`, `exec`, hardcoded secrets, URL i logowania Authorization.
 - `tests/security/test_17_sast_sca_wrappers.py` - kontrakt `requirements-security.txt`, workflow security i lokalnego wrappera narzedzi.
+- `tests/security/test_18_mtls_contract.py` - dokumentacja mTLS, generator certyfikatow demo, `.gitignore`, przyklad Compose TLS i endpoint `/bft/security/transport`.
+- `tests/security/test_19_totp_2fa_contract.py` - minimalny TOTP/2FA demo flow, strict delete i strict BFT secure submit.
 - `tests/security/test_15_error_handling_information_leakage.py` - brak tracebackow, sciezek, SQLAlchemy errors i sekretow w odpowiedziach.
 - `tests/security/test_16_resource_abuse_dos_limits.py` - limity list, batch size, payload depth i petla 100 operacji.
 
