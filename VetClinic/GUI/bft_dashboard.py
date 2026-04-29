@@ -50,6 +50,62 @@ class BftDashboardWidget(QtWidgets.QWidget):
         self.timer.start()
 
     def _build_ui(self, base_url: str, admin_token: str | None) -> None:
+        self.setStyleSheet(
+            """
+            BftDashboardWidget, QWidget {
+                background-color: #f8fafc;
+                color: #111827;
+            }
+            QLineEdit, QTextEdit, QComboBox, QSpinBox, QDoubleSpinBox {
+                background-color: #ffffff;
+                color: #111827;
+                border: 1px solid #cbd5e1;
+                border-radius: 4px;
+                padding: 4px;
+            }
+            QTableWidget {
+                background-color: #ffffff;
+                color: #111827;
+                gridline-color: #e5e7eb;
+            }
+            QHeaderView::section {
+                background-color: #e5e7eb;
+                color: #111827;
+                border: 1px solid #cbd5e1;
+                padding: 4px;
+            }
+            QTabWidget::pane { border: 1px solid #cbd5e1; background: #ffffff; }
+            QTabBar::tab {
+                background: #e5e7eb;
+                color: #111827;
+                padding: 7px 12px;
+                border: 1px solid #cbd5e1;
+            }
+            QTabBar::tab:selected { background: #ffffff; color: #111827; }
+            QGroupBox {
+                border: 1px solid #cbd5e1;
+                border-radius: 6px;
+                margin-top: 12px;
+                background-color: #ffffff;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 8px;
+                padding: 0 4px;
+                color: #334155;
+            }
+            QPushButton {
+                background-color: #ffffff;
+                color: #111827;
+                border: 1px solid #cbd5e1;
+                border-radius: 4px;
+                padding: 6px 10px;
+            }
+            QPushButton:hover { background-color: #f1f5f9; }
+            QPushButton:pressed { background-color: #e2e8f0; }
+            QCheckBox, QLabel { color: #111827; }
+            """
+        )
         layout = QtWidgets.QVBoxLayout(self)
         self.toolbar = QtWidgets.QHBoxLayout()
 

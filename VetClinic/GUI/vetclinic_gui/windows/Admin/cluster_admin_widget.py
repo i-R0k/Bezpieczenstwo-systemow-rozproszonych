@@ -18,6 +18,21 @@ NODES: Dict[int, str] = {
 LEADER_ID = 1
 
 
+def format_chain_verify_status(payload: dict[str, Any]) -> tuple[str, str]:
+    is_valid = bool(payload.get("valid"))
+    if is_valid:
+        return "VALID", "-"
+    errors = payload.get("errors") or []
+    reason = payload.get("diagnostic") or payload.get("reason")
+    if not reason and errors:
+        first = errors[0]
+        reason = (
+            f"verify failed at height={first.get('height', first.get('block'))}: "
+            f"{first.get('reason', '?')}"
+        )
+    return "INVALID", str(reason or "verify failed")
+
+
 class ClusterAdminWidget(QtWidgets.QWidget):
     """Panel administracyjny do podglądu klastra blockchain i sterowania FAULT_*."""
 
@@ -193,15 +208,11 @@ class ClusterAdminWidget(QtWidgets.QWidget):
                 v_resp = requests.get(f"{base_url}/chain/verify", timeout=3.0)
                 if v_resp.status_code == 200:
                     v_data = v_resp.json()
-                    is_valid = bool(v_data.get("valid"))
-                    valid_str = "OK" if is_valid else "INVALID"
-                    if not is_valid:
-                        errs = v_data.get("errors") or []
-                        if errs:
-                            reason = errs[0].get("reason", "?")
-                            faults_desc = (
-                                f"{faults_desc}; " if faults_desc else ""
-                            ) + f"chain error: {reason}"
+                    valid_str, verify_reason = format_chain_verify_status(v_data)
+                    if valid_str != "VALID":
+                        faults_desc = (
+                            f"{faults_desc}; " if faults_desc else ""
+                        ) + verify_reason
                 else:
                     faults_desc = (
                         f"{faults_desc}; " if faults_desc else ""
@@ -227,7 +238,7 @@ class ClusterAdminWidget(QtWidgets.QWidget):
                 color = QtGui.QColor("#FFD966")
             elif valid_str == "INVALID":
                 color = QtGui.QColor("#F4CCCC")
-            elif valid_str == "OK":
+            elif valid_str == "VALID":
                 color = QtGui.QColor("#D9EAD3")
 
             if color:

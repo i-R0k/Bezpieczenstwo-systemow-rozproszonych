@@ -3,18 +3,16 @@ from __future__ import annotations
 """
 Small compatibility layer to ease the transition from PyQt5 to PyQt6.
 
-It exposes the PyQt6 QtCore/QtGui/QtWidgets/QtCharts modules and adds the
+It exposes the PyQt6 QtCore/QtGui/QtWidgets modules and adds the
 most common PyQt5 enum attribute names onto Qt so existing code using
 Qt.AlignCenter, Qt.PointingHandCursor etc. keeps working.
 """
 
 from PyQt6 import QtCore, QtGui, QtWidgets
 
-try:
-    # QtCharts is optional; import lazily to avoid hard failure when absent.
-    from PyQt6 import QtCharts  # type: ignore
-except Exception:  # pragma: no cover - optional dependency
-    QtCharts = None  # type: ignore
+# Do not import QtCharts here. Some Windows/PyQt builds print loader-level
+# failures for missing QtCharts DLLs even when the Python exception is caught.
+QtCharts = None  # type: ignore
 
 Qt = QtCore.Qt
 
@@ -90,4 +88,20 @@ def _patch_enum_aliases() -> None:
 
 _patch_enum_aliases()
 
-__all__ = ["Qt", "QtCore", "QtGui", "QtWidgets", "QtCharts"]
+def apply_light_theme(app: QtWidgets.QApplication) -> None:
+    """Keep the legacy VetClinic shell light even when the OS uses dark mode."""
+    app.setStyle("Fusion")
+    palette = QtGui.QPalette()
+    palette.setColor(QtGui.QPalette.ColorRole.Window, QtGui.QColor("#f8fafc"))
+    palette.setColor(QtGui.QPalette.ColorRole.WindowText, QtGui.QColor("#111827"))
+    palette.setColor(QtGui.QPalette.ColorRole.Base, QtGui.QColor("#ffffff"))
+    palette.setColor(QtGui.QPalette.ColorRole.AlternateBase, QtGui.QColor("#f1f5f9"))
+    palette.setColor(QtGui.QPalette.ColorRole.Text, QtGui.QColor("#111827"))
+    palette.setColor(QtGui.QPalette.ColorRole.Button, QtGui.QColor("#ffffff"))
+    palette.setColor(QtGui.QPalette.ColorRole.ButtonText, QtGui.QColor("#111827"))
+    palette.setColor(QtGui.QPalette.ColorRole.Highlight, QtGui.QColor("#2563eb"))
+    palette.setColor(QtGui.QPalette.ColorRole.HighlightedText, QtGui.QColor("#ffffff"))
+    app.setPalette(palette)
+
+
+__all__ = ["Qt", "QtCore", "QtGui", "QtWidgets", "QtCharts", "apply_light_theme"]

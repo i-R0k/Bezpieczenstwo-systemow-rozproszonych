@@ -16,6 +16,7 @@ class BlockDB(Base):
     nonce = Column(Integer, nullable=False)
     hash = Column(String(128), nullable=False)
     merkle_root = Column(String(128), nullable=True, default="")
+    leader_id = Column(Integer, nullable=True)
     leader_sig = Column(Text, nullable=True, default="")
 
     transactions = relationship(

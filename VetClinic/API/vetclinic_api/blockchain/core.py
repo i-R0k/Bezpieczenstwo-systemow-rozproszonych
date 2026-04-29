@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from abc import ABC, abstractmethod
 from datetime import datetime
 from decimal import Decimal
@@ -27,13 +28,16 @@ def _stable_json(obj: Any) -> bytes:
 
 
 def block_header_dict(block: "Block") -> dict:
-    return {
+    header = {
         "index": block.index,
         "previous_hash": block.previous_hash,
         "timestamp": block.timestamp.isoformat(),
         "merkle_root": block.merkle_root,
         "nonce": block.nonce,
     }
+    if block.leader_id is not None:
+        header["leader_id"] = block.leader_id
+    return header
 
 
 def compute_block_hash_from_header(header: dict) -> str:
@@ -71,6 +75,7 @@ class Block(BaseModel):
     transactions: List[Transaction]
     nonce: int = 0
     merkle_root: str = ""
+    leader_id: Optional[int] = None
     leader_sig: str = ""
     hash: str = ""
 
@@ -96,6 +101,7 @@ def build_genesis_block() -> Block:
         transactions=[],
         nonce=0,
         merkle_root=compute_merkle_root([]),
+        leader_id=0,
         leader_sig="",
     )
     block.hash = compute_block_hash(block)
@@ -114,6 +120,100 @@ def compute_merkle_root(txs: List[Transaction]) -> str:
 
 def block_header_bytes(block: Block) -> bytes:
     return _stable_json(block_header_dict(block))
+
+
+def build_canonical_block_payload(block: Block) -> bytes:
+    """
+    Canonical payload used both for leader signing and verification.
+
+    It excludes derived or diagnostic fields (`hash`, `leader_sig`, `valid`,
+    `faults`) and includes `leader_id` when the block carries it.
+    """
+    return block_header_bytes(block)
+
+
+def legacy_block_header_bytes(block: Block) -> bytes:
+    header = dict(block_header_dict(block))
+    header.pop("leader_id", None)
+    return _stable_json(header)
+
+
+def _leader_public_key(leader_id: int | None):
+    if leader_id is None:
+        return None
+
+    key_b64 = os.getenv(f"NODE_{leader_id}_PUB_KEY")
+    if key_b64:
+        import base64
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+
+        return Ed25519PublicKey.from_public_bytes(base64.b64decode(key_b64))
+
+    configured_leader_id = int(os.getenv("LEADER_ID", "1"))
+    if leader_id == configured_leader_id:
+        return load_leader_keys_from_env().pub
+    return None
+
+
+def verify_block_signature(block: Block) -> dict[str, Any]:
+    if not block.leader_sig:
+        return {
+            "ok": False,
+            "reason": "missing leader_sig",
+            "leader_id": block.leader_id,
+            "height": block.index,
+        }
+
+    if block.leader_id is None:
+        try:
+            keys = load_leader_keys_from_env()
+        except RuntimeError:
+            return {
+                "ok": False,
+                "reason": "stale chain format: missing leader_id and no leader key configured",
+                "leader_id": None,
+                "height": block.index,
+            }
+        if verify_signature(keys.pub, legacy_block_header_bytes(block), block.leader_sig):
+            return {
+                "ok": True,
+                "reason": "legacy block format without leader_id",
+                "leader_id": None,
+                "height": block.index,
+            }
+        return {
+            "ok": False,
+            "reason": "stale chain format: missing leader_id",
+            "leader_id": None,
+            "height": block.index,
+        }
+
+    try:
+        public_key = _leader_public_key(block.leader_id)
+    except Exception:
+        public_key = None
+    if public_key is None:
+        return {
+            "ok": False,
+            "reason": f"unknown leader_id={block.leader_id}",
+            "leader_id": block.leader_id,
+            "height": block.index,
+        }
+
+    if not verify_signature(public_key, build_canonical_block_payload(block), block.leader_sig):
+        return {
+            "ok": False,
+            "reason": f"invalid leader_sig for leader_id={block.leader_id}",
+            "leader_id": block.leader_id,
+            "height": block.index,
+        }
+
+    return {
+        "ok": True,
+        "reason": None,
+        "leader_id": block.leader_id,
+        "height": block.index,
+    }
 
 
 def compute_block_hash(block: Block) -> str:
@@ -200,9 +300,21 @@ class SQLAlchemyStorage(Storage):
         if self._engine is not None:
             # Ensure tables exist even when tests swap storages mid-flight.
             Base.metadata.create_all(bind=self._engine)
+            self._ensure_schema_compatibility()
 
     def _session(self) -> Session:
         return self._session_factory()
+
+    def _ensure_schema_compatibility(self) -> None:
+        if self._engine is None or self._engine.dialect.name != "sqlite":
+            return
+        with self._engine.begin() as conn:
+            columns = {
+                row[1]
+                for row in conn.exec_driver_sql("PRAGMA table_info(blocks)").fetchall()
+            }
+            if "leader_id" not in columns:
+                conn.exec_driver_sql("ALTER TABLE blocks ADD COLUMN leader_id INTEGER")
 
     def get_chain(self) -> List[Block]:
         with self._session() as db:
@@ -227,6 +339,7 @@ class SQLAlchemyStorage(Storage):
                         transactions=txs,
                         nonce=b.nonce,
                         merkle_root=b.merkle_root,
+                        leader_id=getattr(b, "leader_id", None),
                         leader_sig=b.leader_sig,
                         hash=b.hash,
                     )
@@ -253,6 +366,7 @@ class SQLAlchemyStorage(Storage):
                 nonce=block.nonce,
                 hash=block_hash,
                 merkle_root=block.merkle_root,
+                leader_id=block.leader_id,
                 leader_sig=block.leader_sig,
             )
             db.add(block_db)
@@ -369,6 +483,7 @@ def build_block_proposal(storage: Storage) -> BlockProposal:
             timestamp=timestamp,
             nonce=nonce,
             merkle_root=merkle_root,
+            leader_id=int(os.getenv("NODE_ID", os.getenv("LEADER_ID", "1"))),
             leader_sig="",
         )
         block_hash = compute_block_hash(candidate)
@@ -377,7 +492,7 @@ def build_block_proposal(storage: Storage) -> BlockProposal:
             break
         nonce += 1
 
-    header_bytes = block_header_bytes(candidate)
+    header_bytes = build_canonical_block_payload(candidate)
     keys = load_leader_keys_from_env()
     candidate.leader_sig = sign_message(keys.priv, header_bytes)
 
@@ -412,9 +527,16 @@ def verify_chain(storage: Storage) -> Dict[str, Any]:
         if block.merkle_root != merkle:
             errors.append({"block": block.index, "reason": "invalid merkle_root"})
 
-        header_bytes = block_header_bytes(block)
-        if not verify_signature(keys.pub, header_bytes, block.leader_sig):
-            errors.append({"block": block.index, "reason": "invalid leader_sig"})
+        signature_result = verify_block_signature(block)
+        if not signature_result["ok"]:
+            errors.append(
+                {
+                    "block": block.index,
+                    "height": block.index,
+                    "leader_id": signature_result.get("leader_id"),
+                    "reason": signature_result["reason"],
+                }
+            )
 
         computed_hash = compute_block_hash(block)
         if block.hash and block.hash != computed_hash:

@@ -49,6 +49,16 @@ python VetClinic/GUI/run_bft_dashboard.py --admin-token change-me
 
 Panel administratora: uruchom glowne GUI VetClinic, wybierz role `Administrator`, a potem zakladke `BFT Dashboard`.
 
+## Zakladka Siec
+
+Klasyczna zakladka `Siec` w panelu administratora pokazuje stan legacy blockchain/RPC dla wezlow `node1` - `node6`. Kolumna `Valid` ma teraz znaczenie:
+
+- `VALID` - lokalny lancuch wezla przeszedl weryfikacje hashy, merkle root i `leader_sig`;
+- `INVALID` - backend wykryl realna niespojnosc, np. `verify failed at height=7: invalid leader_sig for leader_id=3`;
+- `-` - status nie zostal jeszcze pobrany albo wezla nie udalo sie odpytac.
+
+Podpis lidera jest weryfikowany wzgledem `leader_id` zapisanego w bloku. Nowe bloki sa podpisywane wspolnym canonical payloadem uzywanym takze przy verify. Starsze demo chain entries bez `leader_id` sa raportowane jako `stale chain format: missing leader_id`, zamiast mylacego ogolnego `invalid leader_sig`.
+
 ## Scenariusz prezentacji
 
 1. Uruchom backend FastAPI.

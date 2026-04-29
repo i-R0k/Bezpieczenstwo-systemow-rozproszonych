@@ -212,6 +212,12 @@ async def verify_chain_endpoint(
         if not ok and "reason" not in result:
             errors = result.get("errors") or []
             result["reason"] = errors[0].get("reason", "invalid_chain") if errors else "invalid_chain"
+            if errors:
+                first = errors[0]
+                result["diagnostic"] = (
+                    f"verify failed at height={first.get('height', first.get('block'))}: "
+                    f"{first.get('reason', 'invalid_chain')}"
+                )
         response = JSONResponse(result, status_code=200)
     except Exception as exc:
         chain_verify_total.labels(NODE_NAME, "error").inc()

@@ -1,10 +1,12 @@
 import sys
 from PyQt6.QtWidgets import QApplication, QInputDialog, QMessageBox
+from vetclinic_gui.qt_compat import apply_light_theme
 from vetclinic_gui.windows.main_window import MainWindow
 from vetclinic_gui.services.clients_service import ClientService
 
 def main():
     app = QApplication(sys.argv)
+    apply_light_theme(app)
 
     # 1) Wybór roli
     roles = ["Administrator", "Recepcjonista", "Lekarz", "Klient"]

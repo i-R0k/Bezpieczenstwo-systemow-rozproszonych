@@ -101,8 +101,9 @@ class MainWindow(QMainWindow):
             btn.setCursor(Qt.PointingHandCursor)
             btn.setFlat(True)
             btn.setStyleSheet(
-                "QPushButton { text-align:left; padding:8px; color:#ffffff; font-size:16px; }"
-                "QPushButton:hover { background-color: #2e3a50; }"
+                "QPushButton { text-align:left; padding:8px; color:#1F2937; font-size:16px; "
+                "background-color: transparent; border: none; border-radius: 6px; }"
+                "QPushButton:hover { background-color: #E0F2FE; color:#0F172A; }"
             )
             btn.clicked.connect(lambda _, l=label: self._navigate_to(l))
             sidebar.layout().addWidget(btn)
@@ -126,6 +127,7 @@ class MainWindow(QMainWindow):
         sidebar.layout().addStretch()
         main_layout.addWidget(self.pages)
         self.setCentralWidget(container)
+        container.setStyleSheet("background-color: #F8FAFC; color: #111827;")
 
         # 5) Domyślnie pokazujemy pierwszą stronę
         if self.pages.count() > 0:
@@ -135,13 +137,13 @@ class MainWindow(QMainWindow):
     def _create_sidebar(self) -> QFrame:
         frame = QFrame()
         frame.setFixedWidth(260)
-        frame.setStyleSheet("background-color: #2f3b52;")
+        frame.setStyleSheet("background-color: #F8FAFC; border-right: 1px solid #CBD5E1;")
         layout = QVBoxLayout(frame)
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(15)
 
         logo = QLabel(
-            "<span style='font-size:24px; font-weight:bold; color:#ffffff;'>"
+            "<span style='font-size:24px; font-weight:bold; color:#1F2937;'>"
             "Vet<span style='color:#38a2db;'>Clinic</span></span>"
         )
         logo.setAlignment(Qt.AlignCenter)

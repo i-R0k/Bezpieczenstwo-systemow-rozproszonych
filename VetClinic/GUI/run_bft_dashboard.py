@@ -8,7 +8,7 @@ if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from GUI.bft_dashboard import BftDashboardWindow  # type: ignore  # noqa: E402
-from GUI.bft_qt import QtWidgets, exec_app  # type: ignore  # noqa: E402
+from GUI.bft_qt import QtWidgets, apply_light_theme, exec_app  # type: ignore  # noqa: E402
 
 
 def parse_args() -> argparse.Namespace:
@@ -21,6 +21,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     app = QtWidgets.QApplication(sys.argv)
+    apply_light_theme(app)
     window = BftDashboardWindow(base_url=args.base_url, admin_token=args.admin_token)
     window.show()
     return exec_app(app)

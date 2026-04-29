@@ -11,15 +11,11 @@ from vetclinic_api.cluster.http_client import get_http_client
 from vetclinic_api.blockchain.core import (
     BlockProposal,
     Storage,
-    block_header_bytes,
     compute_block_hash,
     is_valid_new_block,
+    verify_block_signature,
 )
 from vetclinic_api.blockchain.deps import get_storage
-from vetclinic_api.crypto.ed25519 import (
-    load_leader_keys_from_env,
-    verify_signature,
-)
 from vetclinic_api.middleware.chaos import apply_rpc_faults
 
 router = APIRouter(prefix="/rpc", tags=["rpc"])
@@ -107,9 +103,8 @@ async def propose_block(
     if computed_hash != proposal.hash:
         is_ok = False
 
-    keys = load_leader_keys_from_env()
-    header_bytes = block_header_bytes(proposal.block)
-    if not verify_signature(keys.pub, header_bytes, proposal.block.leader_sig):
+    signature_result = verify_block_signature(proposal.block)
+    if not signature_result["ok"]:
         is_ok = False
 
     state = get_state()
@@ -138,10 +133,12 @@ async def commit_block(
     if not is_valid_new_block(last, proposal.block):
         raise HTTPException(status_code=400, detail="Invalid block on commit")
 
-    keys = load_leader_keys_from_env()
-    header_bytes = block_header_bytes(proposal.block)
-    if not verify_signature(keys.pub, header_bytes, proposal.block.leader_sig):
-        raise HTTPException(status_code=400, detail="Invalid leader signature")
+    signature_result = verify_block_signature(proposal.block)
+    if not signature_result["ok"]:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid leader signature: {signature_result['reason']}",
+        )
 
     state = get_state()
     if state.byzantine:
