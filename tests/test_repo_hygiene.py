@@ -60,6 +60,7 @@ def test_requirements_are_normalized() -> None:
             for line in api.splitlines()
             if line.strip() and not line.strip().startswith("#")
         }
+    assert "pydantic[email]==2.11.7" in api
     assert "grpcio" in api
     assert "pyotp" in api
     assert "prometheus-client" in api

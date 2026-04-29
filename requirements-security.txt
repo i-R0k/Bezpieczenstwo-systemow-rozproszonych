@@ -1,3 +1,4 @@
+# Security tools are intentionally unpinned for latest advisory coverage.
 bandit
 pip-audit
 semgrep

@@ -18,11 +18,9 @@ def test_mtls_documentation_and_tooling_files_exist() -> None:
 def test_gitignore_protects_demo_cert_material() -> None:
     gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8", errors="ignore")
     for pattern in (
-        "certs/demo/*.key",
-        "certs/demo/*.crt",
-        "certs/demo/*.csr",
-        "certs/demo/*.pem",
-        "certs/demo/*.srl",
+        "certs/demo/*",
+        "!certs/demo/.gitkeep",
+        "!certs/demo/README.md",
     ):
         assert pattern in gitignore
 
