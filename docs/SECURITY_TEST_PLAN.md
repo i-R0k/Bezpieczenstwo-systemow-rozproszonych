@@ -86,6 +86,26 @@ Semgrep jest wlaczony jako warstwa dodatkowa i na start ma `continue-on-error: t
 ## DAST
 
 ZAP baseline jest manualnym workflow `.github/workflows/zap-baseline.yml`. Workflow uruchamia API lokalnie, czeka na `/bft/observability/health`, wykonuje baseline scan przeciwko `http://localhost:8000` i jest non-blocking (`fail_action: false`).
+Ten sam workflow wykonuje takze ZAP API scan po OpenAPI `http://localhost:8000/openapi.json`. Artefakty sa uploadowane osobno jako `zap-baseline-report` i `zap-api-report`, z raportami HTML/JSON.
+
+Lokalnie `scripts/run_pentest_local.py` uruchamia ZAP baseline w quick mode, a w full mode dodaje ZAP API scan. High severity z raportu JSON jest kandydatem na przyszly gate, ale workflow pozostaje manualny i non-blocking, dopoki findings nie zostana przejrzane i false positives nie beda opisane w konfiguracji.
+
+## Pentest harness
+
+Osobna warstwa pentest znajduje sie w `pentest/` i jest uruchamiana przez:
+
+```powershell
+python scripts/run_pentest_local.py --quick
+python scripts/run_pentest_local.py --full
+```
+
+Quick mode startuje lokalny FastAPI target, czeka na `/bft/observability/health`, wykonuje lekkie probe HTTP (`/openapi.json`, `/bft/status`, health/metrics, dotfiles, `/admin`, `/debug`) oraz sprawdza metody `OPTIONS` i `TRACE` na kilku sciezkach.
+
+Full mode uruchamia quick mode i dodatkowo probuje uzyc ZAP baseline, Nuclei oraz ffuf, jesli narzedzia sa dostepne w PATH. Brak narzedzia jest raportowany jako `skipped`, bez blokowania podstawowego harnessu.
+
+Raporty sa zapisywane w `reports/pentest/<timestamp>/` jako `metadata.json` i `summary.md`. Harness ma localhost-only safety guard: dozwolone targety to tylko `http://127.0.0.1:8000` albo `localhost`; hosty zewnetrzne sa odrzucane przed skanem.
+
+Nuclei w pentest harnessie uzywa wlasnych template'ow z `pentest/nuclei/` dla ekspozycji specyficznych dla projektu: BFT demo endpoints, admin/demo controls, FastAPI docs, local metrics oraz sensitive files. Findings `high` i `critical` z `nuclei.jsonl` sa przenoszone do `summary.md` jako high severity; `info`, `low` i `medium` sa raportowane do triage.
 
 ## Secret scanning
 

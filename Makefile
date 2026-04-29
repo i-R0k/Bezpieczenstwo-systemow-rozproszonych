@@ -18,6 +18,10 @@ help:
 	@echo "  make test-security-legacy    - legacy blockchain/RPC/cluster/admin security"
 	@echo "  make test-security-infra     - secrets, containers, monitoring, GUI, SAST/SCA contracts"
 	@echo "  make security-tools          - pytest security + Bandit/pip-audit/Semgrep/Trivy wrapper"
+	@echo "  make pentest-quick           - local-only quick DAST harness"
+	@echo "  make pentest-full            - local-only full DAST harness with optional tools"
+	@echo "  make pentest-nuclei          - local-only full harness with optional Nuclei templates"
+	@echo "  make test-pentest            - pentest harness contract tests"
 	@echo "  make lint                    - ruff + mypy + bandit, jesli sa dostepne"
 	@echo "  make scenario-healthy        - scenariusz: wszyscy zdrowi"
 	@echo "  make scenario-faults1        - scenariusz: offline + slow"
@@ -91,6 +95,22 @@ test-security-infra:
 .PHONY: security-tools
 security-tools:
 	python scripts/run_security_tools.py
+
+.PHONY: pentest-quick
+pentest-quick:
+	python scripts/run_pentest_local.py --quick
+
+.PHONY: pentest-full
+pentest-full:
+	python scripts/run_pentest_local.py --full
+
+.PHONY: pentest-nuclei
+pentest-nuclei:
+	python scripts/run_pentest_local.py --full
+
+.PHONY: test-pentest
+test-pentest:
+	python -m pytest tests/pentest -q
 
 .PHONY: lint
 lint:

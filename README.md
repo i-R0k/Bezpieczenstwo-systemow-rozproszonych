@@ -52,6 +52,19 @@ Zakres i model zagrozen:
 
 `scripts/run_security_tools.py` uruchamia lokalnie pytest security, Bandit i pip-audit, a Semgrep oraz Trivy tylko wtedy, gdy sa dostepne w PATH. ZAP baseline jest osobnym, manualnym workflow `.github/workflows/zap-baseline.yml`; na tym etapie jest non-blocking i generuje raport demonstracyjny.
 
+## Testy penetracyjne
+
+Pentest harness uruchamia kontrolowane, lokalne skany DAST. Safety guard ogranicza targety do `localhost` i `127.0.0.1`; nie sluzy do testowania cudzych hostow.
+
+```powershell
+python scripts/run_pentest_local.py --quick
+make pentest-quick
+make pentest-full
+make test-pentest
+```
+
+Tryb `--full` dodaje opcjonalne narzedzia ZAP, Nuclei i ffuf, jesli sa dostepne lokalnie. Szczegoly i zasady uzycia sa w `pentest/README.md` oraz `docs/PENTEST.md`.
+
 ### Strict mode dla endpointow administracyjnych
 
 Domyslnie projekt dziala w trybie demo:
@@ -128,6 +141,7 @@ Raport demo powinien zawierac `status=ok`, `final_operation_status=EXECUTED`, `c
 - `docs/OGRANICZENIA.md`
 - `docs/THREAT_MODEL.md`
 - `docs/SECURITY_TEST_PLAN.md`
+- `docs/PENTEST.md`
 
 ## Ograniczenia
 
