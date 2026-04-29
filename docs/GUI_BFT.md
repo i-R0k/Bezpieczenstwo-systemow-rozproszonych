@@ -55,9 +55,14 @@ Klasyczna zakladka `Siec` w panelu administratora pokazuje stan legacy blockchai
 
 - `VALID` - lokalny lancuch wezla przeszedl weryfikacje hashy, merkle root i `leader_sig`;
 - `INVALID` - backend wykryl realna niespojnosc, np. `verify failed at height=7: invalid leader_sig for leader_id=3`;
+- `STALE` - lancuch pochodzi ze starego formatu demo, np. brakuje `leader_id` albo zmienil sie payload podpisu;
+- `UNVERIFIED` - status nie zostal potwierdzony, np. odpowiedz wezla byla niepelna;
+- `OFFLINE` - wezel nie odpowiedzial albo endpoint byl niedostepny;
 - `-` - status nie zostal jeszcze pobrany albo wezla nie udalo sie odpytac.
 
 Podpis lidera jest weryfikowany wzgledem `leader_id` zapisanego w bloku. Nowe bloki sa podpisywane wspolnym canonical payloadem uzywanym takze przy verify. Starsze demo chain entries bez `leader_id` sa raportowane jako `stale chain format: missing leader_id`, zamiast mylacego ogolnego `invalid leader_sig`.
+
+Przycisk `Reset demo chain` w zakladce `Siec` wywoluje `POST /admin/network/reset-demo-chain` na node1-node6. Uzyj go po zmianie formatu podpisu, po dlugich testach fault injection albo gdy wszystkie wezly pokazuja `STALE`/`INVALID` z powodu starego lokalnego chaina.
 
 ## Scenariusz prezentacji
 

@@ -156,14 +156,37 @@ def _leader_public_key(leader_id: int | None):
 
 
 def verify_block_signature(block: Block) -> dict[str, Any]:
+    """
+    Weryfikuje podpis liderza bloku.
+    
+    Zwraca dict z polami:
+    - ok: bool - czy podpis jest prawidłowy
+    - reason: str | None - przyczyna niepowodzenia (None jeśli ok=True)
+    - leader_id: int | None
+    - height: int
+    - is_stale: bool - czy to stary format (do resetu)
+    """
+    # Jeśli brakuje podpisu
     if not block.leader_sig:
+        # Jeśli brak leader_id, to stary format -> STALE
+        if block.leader_id is None:
+            return {
+                "ok": False,
+                "reason": "stale chain format: missing leader_sig and leader_id",
+                "leader_id": None,
+                "height": block.index,
+                "is_stale": True,
+            }
+        # Nowy format (ma leader_id) ale brak podpisu -> INVALID
         return {
             "ok": False,
             "reason": "missing leader_sig",
             "leader_id": block.leader_id,
             "height": block.index,
+            "is_stale": False,
         }
 
+    # Bloki bez leader_id: spróbuj legacy weryfikacji
     if block.leader_id is None:
         try:
             keys = load_leader_keys_from_env()
@@ -173,31 +196,39 @@ def verify_block_signature(block: Block) -> dict[str, Any]:
                 "reason": "stale chain format: missing leader_id and no leader key configured",
                 "leader_id": None,
                 "height": block.index,
+                "is_stale": True,
             }
+        # Spróbuj zweryfikować ze starego canonical payload (bez leader_id)
         if verify_signature(keys.pub, legacy_block_header_bytes(block), block.leader_sig):
             return {
                 "ok": True,
                 "reason": "legacy block format without leader_id",
                 "leader_id": None,
                 "height": block.index,
+                "is_stale": False,
             }
+        # Legacy weryfikacja nie przeszła -> STALE, nie INVALID
         return {
             "ok": False,
             "reason": "stale chain format: missing leader_id",
             "leader_id": None,
             "height": block.index,
+            "is_stale": True,
         }
 
+    # Nowy format: ma leader_id, musi mieć prawidłowy podpis
     try:
         public_key = _leader_public_key(block.leader_id)
     except Exception:
         public_key = None
+    
     if public_key is None:
         return {
             "ok": False,
             "reason": f"unknown leader_id={block.leader_id}",
             "leader_id": block.leader_id,
             "height": block.index,
+            "is_stale": False,
         }
 
     if not verify_signature(public_key, build_canonical_block_payload(block), block.leader_sig):
@@ -206,6 +237,7 @@ def verify_block_signature(block: Block) -> dict[str, Any]:
             "reason": f"invalid leader_sig for leader_id={block.leader_id}",
             "leader_id": block.leader_id,
             "height": block.index,
+            "is_stale": False,
         }
 
     return {
@@ -213,6 +245,7 @@ def verify_block_signature(block: Block) -> dict[str, Any]:
         "reason": None,
         "leader_id": block.leader_id,
         "height": block.index,
+        "is_stale": False,
     }
 
 
@@ -257,6 +290,10 @@ class Storage(ABC):
     def clear_mempool(self) -> None:
         raise NotImplementedError
 
+    @abstractmethod
+    def reset_demo_chain(self) -> Block:
+        raise NotImplementedError
+
 
 class InMemoryStorage(Storage):
     def __init__(self) -> None:
@@ -285,6 +322,12 @@ class InMemoryStorage(Storage):
 
     def clear_mempool(self) -> None:
         self._mempool.clear()
+
+    def reset_demo_chain(self) -> Block:
+        genesis = build_genesis_block()
+        self._chain = [genesis]
+        self._mempool.clear()
+        return genesis
 
 
 class SQLAlchemyStorage(Storage):
@@ -454,6 +497,19 @@ class SQLAlchemyStorage(Storage):
             db.query(TransactionDB).filter(TransactionDB.committed.is_(False)).delete()
             db.commit()
 
+    def reset_demo_chain(self) -> Block:
+        genesis = build_genesis_block()
+        with self._session() as db:
+            try:
+                db.query(TransactionDB).delete()
+                db.query(BlockDB).delete()
+                db.commit()
+                self._persist_block(genesis, db=db)
+            except Exception:
+                db.rollback()
+                raise
+        return genesis
+
 
 def mine_block(storage: Storage) -> Block:
     proposal = build_block_proposal(storage)
@@ -502,11 +558,16 @@ def build_block_proposal(storage: Storage) -> BlockProposal:
 def verify_chain(storage: Storage) -> Dict[str, Any]:
     chain = storage.get_chain()
     if not chain:
-        return {"valid": True, "height": 0, "errors": []}
+        return {
+            "valid": True,
+            "verification_status": "VALID",
+            "height": 0,
+            "errors": [],
+        }
 
     errors: List[dict] = []
-    keys = load_leader_keys_from_env()
-
+    has_stale = False
+    
     for idx, block in enumerate(chain):
         if idx == 0:
             continue
@@ -529,21 +590,23 @@ def verify_chain(storage: Storage) -> Dict[str, Any]:
 
         signature_result = verify_block_signature(block)
         if not signature_result["ok"]:
-            errors.append(
-                {
-                    "block": block.index,
-                    "height": block.index,
-                    "leader_id": signature_result.get("leader_id"),
-                    "reason": signature_result["reason"],
-                }
-            )
+            error_entry = {
+                "block": block.index,
+                "height": block.index,
+                "leader_id": signature_result.get("leader_id"),
+                "reason": signature_result["reason"],
+            }
+            if signature_result.get("is_stale"):
+                error_entry["is_stale"] = True
+                has_stale = True
+            errors.append(error_entry)
 
         computed_hash = compute_block_hash(block)
         if block.hash and block.hash != computed_hash:
             errors.append({"block": block.index, "reason": "block hash mismatch"})
 
         for tx in block.transactions:
-            if not _verify_transaction(tx, keys=keys):
+            if not _verify_transaction(tx):
                 errors.append(
                     {
                         "block": block.index,
@@ -552,11 +615,38 @@ def verify_chain(storage: Storage) -> Dict[str, Any]:
                     }
                 )
 
-    return {
-        "valid": len(errors) == 0,
+    status = "VALID"
+    valid: bool | None = True
+    if errors:
+        # Jeśli ANY error ma is_stale=True, cały chain to STALE
+        if has_stale or any(error.get("is_stale") for error in errors):
+            status = "STALE"
+            valid = None
+        else:
+            status = "INVALID"
+            valid = False
+
+    result: Dict[str, Any] = {
+        "valid": valid,
+        "verification_status": status,
         "height": chain[-1].index,
         "errors": errors,
     }
+    if errors:
+        first = errors[0]
+        result["reason"] = first.get("reason", "invalid_chain")
+        result["diagnostic"] = (
+            f"verify failed at height={first.get('height', first.get('block'))}: "
+            f"{first.get('reason', 'invalid_chain')}"
+        )
+        result["verification_details"] = {
+            "height": first.get("height", first.get("block")),
+            "leader_id": first.get("leader_id"),
+            "reason": first.get("reason"),
+            "stale_format": first.get("is_stale", status == "STALE"),
+            "signature_checked": first.get("reason") != "missing leader_sig",
+        }
+    return result
 
 
 def _verify_transaction(tx: Transaction, *, keys=None) -> bool:

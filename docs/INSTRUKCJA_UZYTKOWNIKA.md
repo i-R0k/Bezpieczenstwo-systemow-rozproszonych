@@ -88,4 +88,4 @@ curl.exe http://127.0.0.1:8001/bft/observability/metrics/snapshot
 - Port 8001 zajety: uruchom uvicorn z innym portem, np. `--port 8010`.
 - Docker nie dziala: uzyj lokalnego testbedu, bo BFT nie wymaga Dockera.
 - Demo zwraca blad: uruchom najpierw `python -m pytest tests/bft -q`, zeby sprawdzic kontrakty modulow.
-- Zakladka `Siec` pokazuje `INVALID`: rozwin kolumne `Faults`. Komunikat `invalid leader_sig for leader_id=X` oznacza bledny podpis dla konkretnego lidera, a `stale chain format: missing leader_id` oznacza stary demo chain sprzed jawnego pola `leader_id`.
+- Zakladka `Siec` pokazuje `INVALID` albo `STALE`: rozwin kolumne `Faults`. Komunikat `invalid leader_sig for leader_id=X` oznacza bledny podpis dla konkretnego lidera, a `stale chain format: missing leader_id` oznacza stary demo chain sprzed jawnego pola `leader_id`. Kliknij `Reset demo chain`, aby wyczyscic lokalny stan demonstracyjny node'ow.

@@ -6,6 +6,8 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from vetclinic_api.admin.network_state import state_payload, update_state
+from vetclinic_api.blockchain.core import Storage, compute_block_hash, verify_chain
+from vetclinic_api.blockchain.deps import get_storage
 from vetclinic_api.security_mode import require_admin_token
 
 ADMIN_DEPENDENCIES = [Depends(require_admin_token)]
@@ -102,3 +104,17 @@ def set_fault_state(payload: RpcFaultsUpdate):
     if updates:
         update_state(**updates)
     return RpcFaultsPayload(**_select_payload(FAULT_FIELDS))
+
+
+@router.post("/reset-demo-chain", dependencies=ADMIN_DEPENDENCIES)
+def reset_demo_chain(storage: Storage = Depends(get_storage)) -> dict:
+    genesis = storage.reset_demo_chain()
+    verification = verify_chain(storage)
+    return {
+        "status": "ok",
+        "height": 0,
+        "last_hash": compute_block_hash(genesis),
+        "verification_status": verification.get("verification_status", "VALID"),
+        "valid": verification.get("valid"),
+        "message": "local demo chain reset to deterministic genesis",
+    }

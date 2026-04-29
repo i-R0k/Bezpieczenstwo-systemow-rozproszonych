@@ -207,7 +207,7 @@ async def verify_chain_endpoint(
     response: JSONResponse
     try:
         result = verify_chain(storage)
-        ok = bool(result.get("valid"))
+        ok = result.get("verification_status") == "VALID"
         chain_verify_total.labels(NODE_NAME, "ok" if ok else "invalid").inc()
         if not ok and "reason" not in result:
             errors = result.get("errors") or []

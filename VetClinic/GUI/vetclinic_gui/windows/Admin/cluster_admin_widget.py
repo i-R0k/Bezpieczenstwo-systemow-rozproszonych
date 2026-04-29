@@ -19,9 +19,23 @@ LEADER_ID = 1
 
 
 def format_chain_verify_status(payload: dict[str, Any]) -> tuple[str, str]:
+    explicit_status = str(payload.get("verification_status") or "").upper()
+    if explicit_status in {"VALID", "INVALID", "STALE", "UNVERIFIED", "OFFLINE"}:
+        if explicit_status == "VALID":
+            return "VALID", "ok"
+        errors = payload.get("errors") or []
+        reason = payload.get("diagnostic") or payload.get("reason")
+        if not reason and errors:
+            first = errors[0]
+            reason = (
+                f"verify failed at height={first.get('height', first.get('block'))}: "
+                f"{first.get('reason', '?')}"
+            )
+        return explicit_status, str(reason or explicit_status.lower())
+
     is_valid = bool(payload.get("valid"))
     if is_valid:
-        return "VALID", "-"
+        return "VALID", "ok"
     errors = payload.get("errors") or []
     reason = payload.get("diagnostic") or payload.get("reason")
     if not reason and errors:
@@ -77,7 +91,9 @@ class ClusterAdminWidget(QtWidgets.QWidget):
         self.btn_send_tx = QtWidgets.QPushButton("Wyślij testową transakcję")
         btn_row.addWidget(self.btn_refresh)
         btn_row.addWidget(self.btn_mine)
+        self.btn_reset_chain = QtWidgets.QPushButton("Reset demo chain")
         btn_row.addWidget(self.btn_send_tx)
+        btn_row.addWidget(self.btn_reset_chain)
         layout.addLayout(btn_row)
 
         auto_row = QtWidgets.QHBoxLayout()
@@ -167,6 +183,7 @@ class ClusterAdminWidget(QtWidgets.QWidget):
         self.btn_refresh.clicked.connect(self.refresh_cluster)
         self.btn_mine.clicked.connect(self.mine_distributed)
         self.btn_send_tx.clicked.connect(self.send_test_tx)
+        self.btn_reset_chain.clicked.connect(self.reset_demo_chain_all_nodes)
         self.btn_load_faults.clicked.connect(self.load_faults_for_selected)
         self.btn_apply_faults.clicked.connect(self.apply_faults_for_selected)
         self.chk_auto_refresh.toggled.connect(self._toggle_auto_refresh)
@@ -213,6 +230,8 @@ class ClusterAdminWidget(QtWidgets.QWidget):
                         faults_desc = (
                             f"{faults_desc}; " if faults_desc else ""
                         ) + verify_reason
+                    else:
+                        faults_desc = faults_desc or "ok"
                 else:
                     faults_desc = (
                         f"{faults_desc}; " if faults_desc else ""
@@ -238,6 +257,12 @@ class ClusterAdminWidget(QtWidgets.QWidget):
                 color = QtGui.QColor("#FFD966")
             elif valid_str == "INVALID":
                 color = QtGui.QColor("#F4CCCC")
+            elif valid_str == "STALE":
+                color = QtGui.QColor("#FCE5CD")
+            elif valid_str == "UNVERIFIED":
+                color = QtGui.QColor("#FFF2CC")
+            elif valid_str == "OFFLINE":
+                color = QtGui.QColor("#D9D9D9")
             elif valid_str == "VALID":
                 color = QtGui.QColor("#D9EAD3")
 
@@ -291,6 +316,26 @@ class ClusterAdminWidget(QtWidgets.QWidget):
         except Exception as exc:
             self._show_error(f"tx/submit error: {exc}")
 
+        self.refresh_cluster()
+
+    def reset_demo_chain_all_nodes(self) -> None:
+        results: dict[str, Any] = {}
+        for node_id, base_url in NODES.items():
+            try:
+                resp = requests.post(
+                    f"{base_url.rstrip('/')}/admin/network/reset-demo-chain",
+                    json={},
+                    timeout=5.0,
+                )
+                if resp.headers.get("content-type", "").startswith("application/json"):
+                    body: Any = resp.json()
+                else:
+                    body = {"status_code": resp.status_code, "body": resp.text}
+                results[f"node{node_id}"] = body
+            except Exception as exc:
+                results[f"node{node_id}"] = {"status": "error", "error": str(exc)}
+
+        self.text_details.setPlainText(json.dumps(results, indent=2, ensure_ascii=False))
         self.refresh_cluster()
 
     def _get_selected_node_id(self) -> int:

@@ -22,9 +22,9 @@ except Exception as exc:  # pragma: no cover - environment dependent
 
 
 def test_valid_status_maps_to_valid_label() -> None:
-    status, reason = format_chain_verify_status({"valid": True, "errors": []})
+    status, reason = format_chain_verify_status({"verification_status": "VALID", "valid": True, "errors": []})
     assert status == "VALID"
-    assert reason == "-"
+    assert reason == "ok"
 
 
 def test_invalid_status_uses_diagnostic_reason() -> None:
@@ -47,9 +47,18 @@ def test_invalid_status_uses_diagnostic_reason() -> None:
 def test_stale_format_is_not_rewritten_to_plain_invalid_signature() -> None:
     status, reason = format_chain_verify_status(
         {
-            "valid": False,
+            "verification_status": "STALE",
+            "valid": None,
             "errors": [{"height": 4, "reason": "stale chain format: missing leader_id"}],
         }
     )
-    assert status == "INVALID"
+    assert status == "STALE"
     assert reason == "verify failed at height=4: stale chain format: missing leader_id"
+
+
+def test_unverified_status_is_distinct_from_invalid() -> None:
+    status, reason = format_chain_verify_status(
+        {"verification_status": "UNVERIFIED", "reason": "node response unavailable"}
+    )
+    assert status == "UNVERIFIED"
+    assert reason == "node response unavailable"
