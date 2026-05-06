@@ -1,5 +1,82 @@
 # Demo koncowe BFT
 
+## Dashboard BFT i reset demo chain
+
+Dla 6-wezlowego klastra Docker ustaw PyQt BFT Dashboard na hostowy adres
+`http://127.0.0.1:8001` (Docker `node1`). Standalone API na
+`http://127.0.0.1:8000` nie ma zmiennej `PEERS`, wiec poprawnie raportuje jeden
+skonfigurowany wezel i dashboard pokazuje diagnostyke standalone/no-peers
+zamiast udawac klaster. Domyslny target startowy mozna nadpisac przez
+`BFT_DASHBOARD_BASE_URL`.
+
+Przed diagnoza wysokosci lancucha albo podpisow zatrzymaj ruch, zeby reset nie
+zostal natychmiast zaklocony:
+
+```bash
+docker compose stop trafficgen
+# albo
+curl -X PUT http://127.0.0.1:8001/admin/network/sim \
+  -H "Content-Type: application/json" \
+  -d '{"traffic_enabled":false}'
+```
+
+Reset klastra uruchamiaj z node1:
+
+```bash
+curl -X POST "http://127.0.0.1:8001/admin/network/reset-demo-chain?scope=cluster"
+```
+
+Odpowiedz zawiera wynik per node z `height` i `verification_status`. Po czystym
+resecie node1..node6 powinny miec `height=0` i `verification_status=VALID`.
+
+## Scenariusze uzycia z harmonogramu w GUI
+
+Te dwa przebiegi sa jawnie dostepne w PyQt BFT Dashboard w zakladce
+`Demo actions`.
+
+### Scenario 1 - poprawne uruchomienie klastra i dashboardu
+
+Mozliwe wykorzystanie przez usera: prowadzacy albo operator demo chce szybko
+sprawdzic, czy GUI jest podlaczone do prawdziwego klastra Docker, a nie do
+standalone API.
+
+Kroki:
+
+1. Uruchom `docker compose up -d node1 node2 node3 node4 node5 node6`.
+2. Uruchom GUI z `--base-url http://127.0.0.1:8001`.
+3. W `Demo actions` kliknij `Scenario 1: Cluster dashboard`.
+
+Oczekiwany wynik testowy:
+
+```text
+configured_total_nodes = 6
+chain verification_status = VALID
+dashboard target = http://127.0.0.1:8001
+passed = True
+```
+
+### Scenario 2 - pelny przebieg operacji klienta przez BFT
+
+Mozliwe wykorzystanie przez usera: prowadzacy chce odtworzyc caly przebieg
+klienta przez BFT bez recznego klikania endpointow Narwhal, HotStuff,
+checkpointingu i recovery.
+
+Kroki:
+
+1. W `Demo actions` kliknij `Scenario 2: Full BFT operation`.
+2. GUI najpierw czysci faults, potem uruchamia pelny demo flow i pobiera raport.
+3. Pokaz `Overview`, `Protocols` i `Live logs`.
+
+Oczekiwany wynik testowy:
+
+```text
+final_operation_status = EXECUTED
+checkpoint_id = present
+recovered_node_id = 3
+steps contain Submit operation, Narwhal, HotStuff, Execute, Checkpoint, Recovery
+passed = True
+```
+
 ## Automatyczny scenariusz API
 
 ```powershell

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from datetime import datetime
 from typing import Any
 
@@ -10,7 +11,7 @@ from .bft_widgets import JsonPreviewDialog, LogTable, MetricCard, StatusBadge
 STANDALONE_API_URL = "http://127.0.0.1:8000"
 DOCKER_NODE1_URL = "http://127.0.0.1:8001"
 STANDALONE_PEERS_WARNING = (
-    "Standalone API without PEERS detected. Use Docker node1 "
+    "You are connected to standalone API without PEERS. Use Docker node1 "
     "http://127.0.0.1:8001 for 6-node cluster."
 )
 
@@ -41,11 +42,12 @@ class BftDashboardWidget(QtWidgets.QWidget):
 
     def __init__(
         self,
-        base_url: str = "http://127.0.0.1:8000",
+        base_url: str | None = None,
         admin_token: str | None = None,
         parent=None,
     ) -> None:
         super().__init__(parent)
+        base_url = self._resolve_initial_base_url(base_url)
         self.client = BftApiClient(base_url=base_url, admin_token=admin_token)
         self.last_report: dict[str, Any] | None = None
         self._last_payloads: dict[str, dict[str, Any]] = {}
@@ -55,6 +57,30 @@ class BftDashboardWidget(QtWidgets.QWidget):
         self.timer.setInterval(2000)
         self.timer.timeout.connect(self.refresh_all)
         self.timer.start()
+
+    @staticmethod
+    def _extract_node_count(payload: dict[str, Any]) -> int | None:
+        topology = payload.get("cluster_topology")
+        if isinstance(topology, dict) and topology.get("configured_total_nodes") is not None:
+            return int(topology["configured_total_nodes"])
+        quorum = _section(payload, "quorum")
+        total_nodes = quorum.get("total_nodes")
+        if total_nodes is not None:
+            return int(total_nodes)
+        nodes = _count(quorum, "summary", "nodes")
+        return int(nodes) if isinstance(nodes, int) else None
+
+    @classmethod
+    def _resolve_initial_base_url(cls, base_url: str | None) -> str:
+        env_url = os.getenv("BFT_DASHBOARD_BASE_URL")
+        if env_url:
+            return env_url
+        if base_url and base_url.rstrip("/") != STANDALONE_API_URL:
+            return base_url
+        probe = BftApiClient(base_url=DOCKER_NODE1_URL, timeout=0.5).get_status()
+        if probe.get("ok") and cls._extract_node_count(probe) == 6:
+            return DOCKER_NODE1_URL
+        return base_url or STANDALONE_API_URL
 
     def _build_ui(self, base_url: str, admin_token: str | None) -> None:
         self.setStyleSheet(
@@ -256,14 +282,20 @@ class BftDashboardWidget(QtWidgets.QWidget):
         tab = QtWidgets.QWidget()
         layout = QtWidgets.QVBoxLayout(tab)
         row = QtWidgets.QHBoxLayout()
+        self.scenario_cluster_button = QtWidgets.QPushButton("Scenario 1: Cluster dashboard")
+        self.scenario_full_flow_button = QtWidgets.QPushButton("Scenario 2: Full BFT operation")
         self.run_demo_button = QtWidgets.QPushButton("Run full BFT demo")
         self.grpc_ping_button = QtWidgets.QPushButton("Run gRPC ping demo")
+        self.reset_demo_chain_button = QtWidgets.QPushButton("Reset demo chain")
         self.refresh_all_button = QtWidgets.QPushButton("Refresh all")
         self.open_last_report_button = QtWidgets.QPushButton("Open last report JSON")
         self.clear_faults_button = QtWidgets.QPushButton("Clear faults")
         for button in [
+            self.scenario_cluster_button,
+            self.scenario_full_flow_button,
             self.run_demo_button,
             self.grpc_ping_button,
+            self.reset_demo_chain_button,
             self.refresh_all_button,
             self.open_last_report_button,
             self.clear_faults_button,
@@ -366,8 +398,11 @@ class BftDashboardWidget(QtWidgets.QWidget):
         self.auto_refresh.toggled.connect(self._toggle_auto_refresh)
         self.interval_combo.currentIndexChanged.connect(self._change_interval)
         self.protocol_filter.currentIndexChanged.connect(self._apply_log_filter)
+        self.scenario_cluster_button.clicked.connect(self.run_schedule_scenario_cluster_dashboard)
+        self.scenario_full_flow_button.clicked.connect(self.run_schedule_scenario_full_bft_operation)
         self.run_demo_button.clicked.connect(self.run_full_demo)
         self.grpc_ping_button.clicked.connect(self.run_grpc_ping_demo)
+        self.reset_demo_chain_button.clicked.connect(self.reset_demo_chain)
         self.open_last_report_button.clicked.connect(self.open_last_report)
         self.clear_faults_button.clicked.connect(self.clear_faults)
         self.add_fault_button.clicked.connect(self.add_fault_rule)
@@ -383,6 +418,13 @@ class BftDashboardWidget(QtWidgets.QWidget):
 
     def _set_status(self, message: str) -> None:
         self.status_label.setText(f"{self.client.base_url} | {message}")
+        self.status_label.setStyleSheet("padding:6px; color:#334155;")
+
+    def _set_error_status(self, message: str) -> None:
+        self.status_label.setText(f"{self.client.base_url} | {message}")
+        self.status_label.setStyleSheet(
+            "padding:6px; color:#991b1b; background-color:#fee2e2; font-weight:600;"
+        )
 
     def _toggle_auto_refresh(self, enabled: bool) -> None:
         if enabled:
@@ -399,9 +441,14 @@ class BftDashboardWidget(QtWidgets.QWidget):
             self.base_url_input.setText(str(base_url))
 
     def _maybe_show_standalone_peers_warning(self, status: dict[str, Any]) -> bool:
-        nodes = _count(_section(status, "quorum"), "summary", "nodes")
+        topology = status.get("cluster_topology")
+        nodes = self._extract_node_count(status)
+        warning = topology.get("warning") if isinstance(topology, dict) else None
         if nodes == 1:
-            self._set_status(STANDALONE_PEERS_WARNING)
+            diagnostic = STANDALONE_PEERS_WARNING
+            if warning:
+                diagnostic = f"{diagnostic} Backend diagnostic: {warning}"
+            self._set_error_status(diagnostic)
             return True
         return False
 
@@ -415,6 +462,7 @@ class BftDashboardWidget(QtWidgets.QWidget):
         self._sync_client()
         payloads = {
             "status": self.client.get_status(),
+            "topology": self.client.get_cluster_topology(),
             "events": self.client.get_events(),
             "communication": self.client.get_communication_log(),
             "swim": self.client.get_swim_status(),
@@ -441,13 +489,18 @@ class BftDashboardWidget(QtWidgets.QWidget):
     def _update_overview(self, payloads: dict[str, dict[str, Any]]) -> None:
         status = payloads["status"]
         quorum = _section(status, "quorum")
+        topology = payloads.get("topology", {})
         hotstuff = _section(status, "hotstuff")
         narwhal = _section(status, "narwhal")
         operations = _section(status, "operations")
         faults = _section(status, "fault_injection")
         checkpointing = _section(status, "checkpointing")
         swim = payloads["swim"]
-        self.metric_cards["total_nodes"].set_value(_count(quorum, "summary", "nodes"))
+        total_nodes = self._extract_node_count(status)
+        if total_nodes == 1 and isinstance(topology, dict) and topology.get("warning"):
+            self.metric_cards["total_nodes"].set_value("1 (standalone target)")
+        else:
+            self.metric_cards["total_nodes"].set_value(total_nodes if total_nodes is not None else _count(quorum, "summary", "nodes"))
         self.metric_cards["quorum"].set_value(_count(quorum, "summary", "quorum"))
         self.metric_cards["leader"].set_value(_count(payloads["hotstuff"], "view_state", "leader_id"))
         self.metric_cards["view"].set_value(_count(hotstuff, "view"))
@@ -523,10 +576,93 @@ class BftDashboardWidget(QtWidgets.QWidget):
         self._show_json("Full BFT demo", payload)
         self.refresh_all()
 
+    def run_schedule_scenario_cluster_dashboard(self) -> None:
+        self._sync_client()
+        payload = {
+            "scenario": "Scenario 1 - poprawne uruchomienie klastra i dashboardu",
+            "expected": {
+                "docker_dashboard_url": DOCKER_NODE1_URL,
+                "configured_total_nodes": 6,
+                "chain_verification_status": "VALID",
+            },
+            "status": self.client.get_status(),
+            "topology": self.client.get_cluster_topology(),
+            "chain_status": self.client.get_chain_status(),
+            "chain_verify": self.client.get_chain_verify(),
+        }
+        total_nodes = self._extract_node_count(payload["status"])
+        verification = payload["chain_verify"].get("verification_status")
+        payload["passed"] = (
+            total_nodes == 6
+            and verification == "VALID"
+            and self.client.base_url.rstrip("/") == DOCKER_NODE1_URL
+        )
+        if not payload["passed"]:
+            payload["diagnostic"] = (
+                "Scenario 1 expects Docker node1 on http://127.0.0.1:8001, "
+                "configured_total_nodes=6, and chain verify VALID."
+            )
+        self.demo_output.setPlainText(str(payload))
+        self._show_json("Scenario 1: Cluster dashboard", payload)
+        self.refresh_all()
+
+    def run_schedule_scenario_full_bft_operation(self) -> None:
+        self._sync_client()
+        clear_result = self.client.clear_faults()
+        demo_report = self.client.run_full_demo()
+        last_report = self.client.get_last_report()
+        steps = [
+            step.get("name")
+            for step in (demo_report.get("steps") or [])
+            if isinstance(step, dict)
+        ]
+        required_steps = {
+            "Submit operation",
+            "Narwhal",
+            "HotStuff",
+            "Execute",
+            "Checkpoint",
+            "Recovery",
+        }
+        payload = {
+            "scenario": "Scenario 2 - pelny przebieg operacji klienta przez BFT",
+            "expected": {
+                "final_operation_status": "EXECUTED",
+                "checkpoint_id": "present",
+                "recovered_node_id": 3,
+                "steps": sorted(required_steps),
+            },
+            "clear_faults": clear_result,
+            "demo_report": demo_report,
+            "last_report": last_report,
+            "passed": (
+                demo_report.get("status") == "ok"
+                and demo_report.get("final_operation_status") == "EXECUTED"
+                and bool(demo_report.get("checkpoint_id"))
+                and demo_report.get("recovered_node_id") == 3
+                and required_steps.issubset(set(steps))
+            ),
+        }
+        self.demo_output.setPlainText(str(payload))
+        self._show_json("Scenario 2: Full BFT operation", payload)
+        self.refresh_all()
+
     def run_grpc_ping_demo(self) -> None:
         payload = self.client.run_grpc_ping_demo()
         self.demo_output.setPlainText(str(payload))
         self._show_json("gRPC ping demo", payload)
+        self.refresh_all()
+
+    def reset_demo_chain(self) -> None:
+        is_docker_target = self.client.base_url.rstrip("/") == DOCKER_NODE1_URL
+        scope = "cluster" if is_docker_target else "local"
+        payload = self.client.reset_demo_chain(scope=scope)
+        if scope == "cluster":
+            payload["diagnostic_note"] = (
+                "Keep trafficgen stopped or traffic_enabled=false while diagnosing chain reset."
+            )
+        self.demo_output.setPlainText(str(payload))
+        self._show_json("Reset demo chain", payload)
         self.refresh_all()
 
     def open_last_report(self) -> None:
@@ -577,11 +713,12 @@ class BftDashboardWidget(QtWidgets.QWidget):
 class BftDashboardWindow(QtWidgets.QMainWindow):
     def __init__(
         self,
-        base_url: str = "http://127.0.0.1:8000",
+        base_url: str | None = None,
         admin_token: str | None = None,
         parent=None,
     ) -> None:
         super().__init__(parent)
+        base_url = BftDashboardWidget._resolve_initial_base_url(base_url)
         self.setWindowTitle("BSR BFT Protocol Dashboard")
         self.resize(1280, 820)
         self.dashboard = BftDashboardWidget(base_url=base_url, admin_token=admin_token, parent=self)

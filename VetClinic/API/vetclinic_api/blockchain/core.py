@@ -122,7 +122,7 @@ def block_header_bytes(block: Block) -> bytes:
     return _stable_json(block_header_dict(block))
 
 
-def build_canonical_block_payload(block: Block) -> bytes:
+def canonical_block_signing_payload_v1(block: Block) -> bytes:
     """
     Canonical payload used both for leader signing and verification.
 
@@ -130,6 +130,10 @@ def build_canonical_block_payload(block: Block) -> bytes:
     `faults`) and includes `leader_id` when the block carries it.
     """
     return block_header_bytes(block)
+
+
+def build_canonical_block_payload(block: Block) -> bytes:
+    return canonical_block_signing_payload_v1(block)
 
 
 def legacy_block_header_bytes(block: Block) -> bytes:
@@ -231,7 +235,7 @@ def verify_block_signature(block: Block) -> dict[str, Any]:
             "is_stale": False,
         }
 
-    if not verify_signature(public_key, build_canonical_block_payload(block), block.leader_sig):
+    if not verify_signature(public_key, canonical_block_signing_payload_v1(block), block.leader_sig):
         if verify_signature(public_key, legacy_block_header_bytes(block), block.leader_sig):
             return {
                 "ok": False,
@@ -281,6 +285,32 @@ def is_valid_new_block(previous: Block, new: Block) -> bool:
     return block_hash.startswith(DIFFICULTY_PREFIX)
 
 
+def sign_block(block: Block, keys=None, leader_id: int | None = None) -> Block:
+    block.leader_id = leader_id if leader_id is not None else get_signing_leader_id()
+    block.hash = compute_block_hash(block)
+    signing_keys = keys or load_leader_keys_from_env()
+    block.leader_sig = sign_message(
+        signing_keys.priv,
+        canonical_block_signing_payload_v1(block),
+    )
+    return block
+
+
+def validate_block_for_append(previous: Block, block: Block) -> None:
+    if not is_valid_new_block(previous, block):
+        raise ValueError("Invalid block")
+
+    computed_hash = compute_block_hash(block)
+    if block.hash and block.hash != computed_hash:
+        raise ValueError("block hash mismatch")
+
+    if block.index > 0:
+        signature_result = verify_block_signature(block)
+        if not signature_result["ok"]:
+            reason = signature_result.get("reason") or "invalid_leader_sig"
+            raise ValueError(reason)
+
+
 class Storage(ABC):
     @abstractmethod
     def get_chain(self) -> List[Block]:
@@ -321,8 +351,7 @@ class InMemoryStorage(Storage):
 
     def add_block(self, block: Block) -> None:
         last = self._chain[-1]
-        if not is_valid_new_block(last, block):
-            raise ValueError("Invalid block")
+        validate_block_for_append(last, block)
         self._chain.append(block)
         self._mempool.clear()
 
@@ -461,8 +490,7 @@ class SQLAlchemyStorage(Storage):
     def add_block(self, block: Block) -> None:
         chain = self.get_chain()
         last = chain[-1]
-        if not is_valid_new_block(last, block):
-            raise ValueError("Invalid block")
+        validate_block_for_append(last, block)
         with self._session() as db:
             self._persist_block(block, db=db)
             db.query(TransactionDB).filter(TransactionDB.committed.is_(False)).delete()
@@ -565,9 +593,7 @@ def build_block_proposal(storage: Storage) -> BlockProposal:
             break
         nonce += 1
 
-    header_bytes = build_canonical_block_payload(candidate)
-    keys = load_leader_keys_from_env()
-    candidate.leader_sig = sign_message(keys.priv, header_bytes)
+    sign_block(candidate, leader_id=get_signing_leader_id())
 
     return BlockProposal(block=candidate, hash=block_hash)
 

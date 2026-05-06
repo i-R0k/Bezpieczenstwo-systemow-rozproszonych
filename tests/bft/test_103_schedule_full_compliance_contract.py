@@ -77,3 +77,22 @@ def test_security_2fa_demo_setup_endpoint_is_available() -> None:
 def test_readme_links_schedule_compliance_document() -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
     assert "docs/ZGODNOSC_Z_HARMONOGRAMEM.md" in readme
+
+
+def test_schedule_scenarios_are_explicit_in_docs_tests_and_gui() -> None:
+    schedule = (ROOT / "docs" / "ZGODNOSC_Z_HARMONOGRAMEM.md").read_text(encoding="utf-8").lower()
+    demo = (ROOT / "docs" / "DEMO.md").read_text(encoding="utf-8").lower()
+    dashboard = (ROOT / "VetClinic" / "GUI" / "bft_dashboard.py").read_text(encoding="utf-8").lower()
+    gui_tests = (ROOT / "tests" / "gui" / "test_bft_dashboard_pyqt_contract.py").read_text(encoding="utf-8").lower()
+
+    required = [
+        "scenario 1",
+        "poprawne uruchomienie klastra i dashboardu",
+        "scenario 2",
+        "pelny przebieg operacji klienta przez bft",
+    ]
+    for keyword in required:
+        assert keyword in schedule
+        assert keyword in demo
+        assert keyword in dashboard
+        assert keyword in gui_tests

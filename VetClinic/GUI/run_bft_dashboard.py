@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -13,7 +14,7 @@ from GUI.bft_qt import QtWidgets, apply_light_theme, exec_app  # type: ignore  #
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run the BSR BFT PyQt dashboard")
-    parser.add_argument("--base-url", default="http://127.0.0.1:8000")
+    parser.add_argument("--base-url", default=os.getenv("BFT_DASHBOARD_BASE_URL"))
     parser.add_argument("--admin-token", default=None)
     return parser.parse_args()
 

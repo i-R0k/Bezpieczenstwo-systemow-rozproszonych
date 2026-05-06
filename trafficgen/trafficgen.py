@@ -6,6 +6,13 @@ import requests
 
 API_ADMIN = os.getenv("ADMIN_API", "http://node1:8000")
 LEADER = os.getenv("LEADER_URL", "http://node1:8000")
+TRAFFICGEN_ENABLED = os.getenv("TRAFFICGEN_ENABLED", "true").strip().lower() not in {
+    "0",
+    "false",
+    "no",
+    "off",
+}
+START_DELAY_SECONDS = float(os.getenv("TRAFFICGEN_START_DELAY", "0"))
 NODES = os.getenv(
     "NODES",
     "http://node1:8000,http://node2:8000,http://node3:8000,http://node4:8000,http://node5:8000,http://node6:8000",
@@ -63,6 +70,12 @@ def mine_distributed():
 
 
 def main():
+    if START_DELAY_SECONDS > 0:
+        time.sleep(START_DELAY_SECONDS)
+    if not TRAFFICGEN_ENABLED:
+        while True:
+            time.sleep(60.0)
+
     while True:
         state = get_state()
         if not state.get("traffic_enabled", True):

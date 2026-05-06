@@ -257,6 +257,15 @@ async def mine_distributed(
 
     votes = 1
     total = 1
+    vote_details = [
+        {
+            "node": f"node{CONFIG.node_id}",
+            "url": "local",
+            "vote": "accept",
+            "reason": None,
+            "height": storage.get_chain()[-1].index,
+        }
+    ]
 
     payload = proposal.model_dump(mode="json")
 
@@ -265,26 +274,101 @@ async def mine_distributed(
         total += 1
         try:
             resp = await client.post(url, json=payload)
-        except Exception:
+        except Exception as exc:
+            vote_details.append(
+                {
+                    "node": base_url,
+                    "url": base_url,
+                    "vote": "reject",
+                    "reason": f"unreachable: {exc}",
+                }
+            )
+            continue
+        try:
+            body = resp.json()
+        except ValueError:
+            body = {"reason": resp.text}
+        if resp.status_code != 200:
+            vote_details.append(
+                {
+                    "node": base_url,
+                    "url": base_url,
+                    "vote": "reject",
+                    "reason": body.get("detail", body.get("reason", resp.text)),
+                    "status_code": resp.status_code,
+                }
+            )
             continue
         if resp.status_code == 200:
-            try:
-                body = resp.json()
-            except ValueError:
-                continue
             if body.get("vote") == "accept":
                 votes += 1
+            vote_details.append(
+                {
+                    "node": base_url,
+                    "url": base_url,
+                    "vote": body.get("vote", "reject"),
+                    "reason": body.get("reason"),
+                    "height": body.get("height"),
+                    "byzantine": body.get("byzantine", False),
+                    "expected_previous_hash": body.get("expected_previous_hash"),
+                    "proposal_previous_hash": body.get("proposal_previous_hash"),
+                }
+            )
 
     if votes <= total // 2:
-        return {"status": "rejected", "votes": votes, "total": total}
+        return {
+            "status": "rejected",
+            "votes": votes,
+            "total": total,
+            "vote_details": vote_details,
+            "commit_details": [],
+        }
 
-    storage.add_block(proposal.block)
+    try:
+        storage.add_block(proposal.block)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=f"leader append failed: {exc}") from exc
 
+    commit_details = [
+        {
+            "node": f"node{CONFIG.node_id}",
+            "url": "local",
+            "ok": True,
+            "height": proposal.block.index,
+        }
+    ]
     for base_url in CONFIG.peers:
         url = f"{base_url.rstrip('/')}/rpc/commit_block"
         try:
-            await client.post(url, json=payload)
-        except Exception:
+            resp = await client.post(url, json=payload)
+            try:
+                body = resp.json()
+            except ValueError:
+                body = {"detail": resp.text}
+            commit_details.append(
+                {
+                    "node": base_url,
+                    "url": base_url,
+                    "ok": resp.status_code == 200,
+                    "height": body.get("height"),
+                    "verification_status": body.get("verification_status"),
+                    **(
+                        {"error": body.get("detail", body.get("error"))}
+                        if resp.status_code != 200
+                        else {}
+                    ),
+                }
+            )
+        except Exception as exc:
+            commit_details.append(
+                {
+                    "node": base_url,
+                    "url": base_url,
+                    "ok": False,
+                    "height": None,
+                    "error": f"unreachable: {exc}",
+                }
+            )
             continue
 
     return {
@@ -292,4 +376,6 @@ async def mine_distributed(
         "block_hash": proposal.hash,
         "votes": votes,
         "total": total,
+        "vote_details": vote_details,
+        "commit_details": commit_details,
     }

@@ -36,6 +36,7 @@
 | Dokumentacja techniczna | Zrealizowano | `docs/RAPORT_TECHNICZNY.md`, `docs/ARCHITEKTURA.md`, dokumenty modulow | `tests/bft/test_99_documentation_contract.py` | Dokumentacja opisuje faktyczny stan i ograniczenia. |
 | Dokumentacja uzytkowa | Zrealizowano | `README.md`, `docs/INSTRUKCJA_UZYTKOWNIKA.md`, `docs/API_BFT.md`, `docs/API_SECURITY.md` | `tests/bft/test_103_schedule_full_compliance_contract.py` | Zawiera komendy uruchomieniowe i katalog endpointow. |
 | Scenariusz prezentacji | Zrealizowano | `docs/SCENARIUSZ_PREZENTACJI.md` | `python scripts/run_bft_testbed.py`, `python scripts/run_security_testbed.py`, `python scripts/run_pentest_local.py --quick` | Scenariusz 15 minut pokazuje README, harmonogram, testbed, API, dashboard, gRPC, 2FA, certy i ograniczenia. |
+| Scenariusze uzycia z harmonogramu | Zrealizowano | `docs/DEMO.md`, PyQt BFT Dashboard `Demo actions` | `tests/gui/test_bft_dashboard_pyqt_contract.py`, `tests/bft/test_103_schedule_full_compliance_contract.py` | Jawnie dostepne sa `Scenario 1 - poprawne uruchomienie klastra i dashboardu` oraz `Scenario 2 - pelny przebieg operacji klienta przez BFT`; GUI ma osobne przyciski do odtworzenia obu przebiegow. |
 
 ## Podsumowanie
 

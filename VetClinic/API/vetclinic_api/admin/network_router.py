@@ -2,13 +2,16 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-from fastapi import APIRouter, Depends
+import httpx
+from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, Field
 
-from vetclinic_api.admin.network_state import state_payload, update_state
+from vetclinic_api.admin.network_state import get_state, state_payload, update_state
 from vetclinic_api.blockchain.core import Storage, compute_block_hash, verify_chain
 from vetclinic_api.blockchain.deps import get_storage
-from vetclinic_api.security_mode import require_admin_token
+from vetclinic_api.cluster.config import CONFIG
+from vetclinic_api.cluster.http_client import get_http_client
+from vetclinic_api.security_mode import ADMIN_TOKEN_HEADER, require_admin_token
 
 ADMIN_DEPENDENCIES = [Depends(require_admin_token)]
 
@@ -106,15 +109,127 @@ def set_fault_state(payload: RpcFaultsUpdate):
     return RpcFaultsPayload(**_select_payload(FAULT_FIELDS))
 
 
-@router.post("/reset-demo-chain", dependencies=ADMIN_DEPENDENCIES)
-def reset_demo_chain(storage: Storage = Depends(get_storage)) -> dict:
+def _node_name_for_url(url: str) -> str:
+    for node_id in range(1, 100):
+        if f"node{node_id}" in url:
+            return f"node{node_id}"
+    return url
+
+
+def _local_reset_result(storage: Storage, node: str, url: str) -> dict:
     genesis = storage.reset_demo_chain()
+    get_state().reset_counters()
     verification = verify_chain(storage)
     return {
+        "node": node,
+        "url": url,
+        "ok": verification.get("verification_status") == "VALID",
         "status": "ok",
         "height": 0,
         "last_hash": compute_block_hash(genesis),
         "verification_status": verification.get("verification_status", "VALID"),
         "valid": verification.get("valid"),
-        "message": "local demo chain reset to deterministic genesis",
+        **({"error": verification.get("reason")} if verification.get("verification_status") != "VALID" else {}),
+    }
+
+
+@router.post("/reset-demo-chain", dependencies=ADMIN_DEPENDENCIES)
+async def reset_demo_chain(
+    request: Request,
+    scope: str = Query(default="local", pattern="^(local|cluster)$"),
+    storage: Storage = Depends(get_storage),
+    client: httpx.AsyncClient = Depends(get_http_client),
+) -> dict:
+    if scope == "local":
+        local = _local_reset_result(
+            storage,
+            node=f"node{CONFIG.node_id}",
+            url=f"http://node{CONFIG.node_id}:8000",
+        )
+        return {
+            **local,
+            "scope": "local",
+            "message": "local demo chain reset to deterministic genesis",
+            "results": [local],
+        }
+
+    previous_traffic_enabled = state_payload().get("traffic_enabled")
+    update_state(traffic_enabled=False)
+
+    local = _local_reset_result(
+        storage,
+        node=f"node{CONFIG.node_id}",
+        url=f"http://node{CONFIG.node_id}:8000",
+    )
+    results: list[dict] = [local]
+
+    headers: dict[str, str] = {}
+    admin_token = request.headers.get(ADMIN_TOKEN_HEADER)
+    if admin_token:
+        headers[ADMIN_TOKEN_HEADER] = admin_token
+
+    for base_url in CONFIG.peers:
+        node = _node_name_for_url(base_url)
+        endpoint = f"{base_url.rstrip('/')}/admin/network/reset-demo-chain"
+        try:
+            response = await client.post(
+                endpoint,
+                params={"scope": "local"},
+                headers=headers,
+            )
+            try:
+                payload = response.json()
+            except ValueError:
+                payload = {"detail": response.text}
+            if response.status_code >= 400:
+                results.append(
+                    {
+                        "node": node,
+                        "url": base_url,
+                        "ok": False,
+                        "height": None,
+                        "verification_status": "ERROR",
+                        "error": payload.get("detail", response.text),
+                    }
+                )
+                continue
+            results.append(
+                {
+                    "node": payload.get("node", node),
+                    "url": base_url,
+                    "ok": bool(payload.get("ok", True)),
+                    "height": payload.get("height"),
+                    "verification_status": payload.get("verification_status", "UNKNOWN"),
+                    **({"error": payload.get("error")} if payload.get("error") else {}),
+                }
+            )
+        except Exception as exc:
+            results.append(
+                {
+                    "node": node,
+                    "url": base_url,
+                    "ok": False,
+                    "height": None,
+                    "verification_status": "ERROR",
+                    "error": str(exc),
+                }
+            )
+
+    all_ok = all(item.get("ok") for item in results)
+    return {
+        "status": "ok" if all_ok else "partial_failure",
+        "scope": "cluster",
+        "traffic_enabled_before_reset": previous_traffic_enabled,
+        "traffic_enabled_after_reset": state_payload().get("traffic_enabled"),
+        "message": (
+            "cluster demo chain reset issued; traffic_enabled was disabled on this node. "
+            "Stop trafficgen or keep traffic disabled during diagnostics."
+        ),
+        "results": results,
+        "configured_total_nodes": 1 + len(CONFIG.peers),
+        "ok": all_ok,
+        "height": local["height"],
+        "last_hash": local["last_hash"],
+        "verification_status": local["verification_status"],
+        "valid": local["valid"],
     }

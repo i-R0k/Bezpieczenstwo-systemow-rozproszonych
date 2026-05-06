@@ -53,6 +53,15 @@ class BftApiClient:
     def get_status(self) -> dict[str, Any]:
         return self._request("GET", "/bft/status")
 
+    def get_cluster_topology(self) -> dict[str, Any]:
+        return self._request("GET", "/bft/cluster/topology")
+
+    def get_chain_status(self) -> dict[str, Any]:
+        return self._request("GET", "/chain/status")
+
+    def get_chain_verify(self) -> dict[str, Any]:
+        return self._request("GET", "/chain/verify")
+
     def get_events(self, limit: int = 50) -> dict[str, Any]:
         return self._request("GET", "/bft/events", params={"limit": limit})
 
@@ -97,6 +106,13 @@ class BftApiClient:
 
     def clear_faults(self) -> dict[str, Any]:
         return self._request("DELETE", "/bft/faults")
+
+    def reset_demo_chain(self, scope: str = "cluster") -> dict[str, Any]:
+        return self._request(
+            "POST",
+            "/admin/network/reset-demo-chain",
+            params={"scope": scope},
+        )
 
     def setup_totp(self, account_name: str) -> dict[str, Any]:
         return self._request(

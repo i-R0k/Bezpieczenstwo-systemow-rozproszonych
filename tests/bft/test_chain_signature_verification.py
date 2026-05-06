@@ -79,9 +79,9 @@ def test_signing_payload_does_not_include_leader_signature(monkeypatch) -> None:
 
 def test_block_verified_with_wrong_node_key_fails(monkeypatch) -> None:
     _set_leader_keys(monkeypatch, leader_id=1)
+    storage = _build_demo_chain()
     _, wrong_pub = generate_keypair()
     monkeypatch.setenv("NODE_1_PUB_KEY", wrong_pub)
-    storage = _build_demo_chain()
 
     result = verify_block_signature(storage.get_chain()[1])
 

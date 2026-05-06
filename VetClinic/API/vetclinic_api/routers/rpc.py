@@ -12,8 +12,7 @@ from vetclinic_api.blockchain.core import (
     BlockProposal,
     Storage,
     compute_block_hash,
-    is_valid_new_block,
-    verify_block_signature,
+    validate_block_for_append,
 )
 from vetclinic_api.blockchain.deps import get_storage
 from vetclinic_api.middleware.chaos import apply_rpc_faults
@@ -97,22 +96,31 @@ async def propose_block(
 
     last = chain[-1]
 
-    is_ok = is_valid_new_block(last, proposal.block)
-
+    is_ok = True
+    reason = None
     computed_hash = compute_block_hash(proposal.block)
-    if computed_hash != proposal.hash:
+    try:
+        validate_block_for_append(last, proposal.block)
+        if computed_hash != proposal.hash:
+            is_ok = False
+            reason = "proposal hash mismatch"
+    except ValueError as exc:
         is_ok = False
-
-    signature_result = verify_block_signature(proposal.block)
-    if not signature_result["ok"]:
-        is_ok = False
+        reason = str(exc)
 
     state = get_state()
     vote = "accept" if is_ok else "reject"
     if state.byzantine:
         vote = "reject" if is_ok else "accept"
 
-    return {"vote": vote, "byzantine": state.byzantine}
+    return {
+        "vote": vote,
+        "byzantine": state.byzantine,
+        "reason": reason,
+        "height": last.index,
+        "expected_previous_hash": compute_block_hash(last),
+        "proposal_previous_hash": proposal.block.previous_hash,
+    }
 
 
 @router.post("/commit_block")
@@ -130,21 +138,19 @@ async def commit_block(
         raise HTTPException(status_code=500, detail="Empty chain on commit")
 
     last = chain[-1]
-    if not is_valid_new_block(last, proposal.block):
-        raise HTTPException(status_code=400, detail="Invalid block on commit")
-
-    signature_result = verify_block_signature(proposal.block)
-    if not signature_result["ok"]:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid leader signature: {signature_result['reason']}",
-        )
+    try:
+        validate_block_for_append(last, proposal.block)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     state = get_state()
     if state.byzantine:
         return {"status": "committed", "byzantine": True, "height": last.index}
 
-    storage.add_block(proposal.block)
+    try:
+        storage.add_block(proposal.block)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {
         "status": "committed",
         "byzantine": False,

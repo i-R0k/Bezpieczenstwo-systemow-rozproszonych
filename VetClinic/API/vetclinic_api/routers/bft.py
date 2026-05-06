@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import uuid
 from pathlib import Path
 from typing import Any
@@ -230,6 +231,28 @@ class SecureDemoClientOperationInput(ClientOperationInput):
 
 def _node_count() -> int:
     return 1 + len(CONFIG.peers)
+
+
+def _self_internal_url() -> str:
+    return os.getenv("SELF_INTERNAL_URL") or f"http://node{CONFIG.node_id}:8000"
+
+
+def _cluster_topology_payload() -> dict[str, Any]:
+    total_nodes = _node_count()
+    warning = None
+    if not CONFIG.peers:
+        warning = (
+            "standalone/no peers: this API process has no PEERS configured and "
+            "is not reporting a Docker cluster"
+        )
+    return {
+        "self_node_id": CONFIG.node_id,
+        "leader_id": CONFIG.leader_id,
+        "self_internal_url": _self_internal_url(),
+        "configured_peers": CONFIG.peers,
+        "configured_total_nodes": total_nodes,
+        "warning": warning,
+    }
 
 
 def _health_service() -> HealthService:
@@ -650,6 +673,8 @@ def _status_section(name: str, producer) -> dict:
 def bft_status() -> dict:
     return {
         "status": "ok",
+        "cluster_topology": _cluster_topology_payload(),
+        "total_nodes": _node_count(),
         "architecture": _status_section(
             "architecture",
             lambda: {
@@ -662,6 +687,7 @@ def bft_status() -> dict:
             "quorum",
             lambda: {
                 "summary": describe_quorum(_node_count()),
+                "total_nodes": _node_count(),
                 "self": CONFIG.node_id,
                 "peers": CONFIG.peers,
             },
@@ -738,6 +764,11 @@ def bft_status() -> dict:
             },
         ),
     }
+
+
+@router.get("/cluster/topology")
+def cluster_topology() -> dict:
+    return _cluster_topology_payload()
 
 
 @router.get("/quorum")
