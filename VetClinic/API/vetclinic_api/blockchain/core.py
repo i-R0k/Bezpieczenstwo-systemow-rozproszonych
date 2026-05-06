@@ -232,6 +232,18 @@ def verify_block_signature(block: Block) -> dict[str, Any]:
         }
 
     if not verify_signature(public_key, build_canonical_block_payload(block), block.leader_sig):
+        if verify_signature(public_key, legacy_block_header_bytes(block), block.leader_sig):
+            return {
+                "ok": False,
+                "reason": (
+                    "stale chain format: leader_sig verifies only with legacy payload; "
+                    "reset demo chain required"
+                ),
+                "leader_id": block.leader_id,
+                "height": block.index,
+                "is_stale": True,
+            }
+
         return {
             "ok": False,
             "reason": f"invalid leader_sig for leader_id={block.leader_id}",
@@ -517,6 +529,11 @@ def mine_block(storage: Storage) -> Block:
     return proposal.block
 
 
+def get_signing_leader_id() -> int:
+    """Return node id of the key owner used for leader block signatures."""
+    return int(os.getenv("LEADER_ID", "1"))
+
+
 def build_block_proposal(storage: Storage) -> BlockProposal:
     chain = storage.get_chain()
     mempool = storage.get_mempool()
@@ -539,7 +556,7 @@ def build_block_proposal(storage: Storage) -> BlockProposal:
             timestamp=timestamp,
             nonce=nonce,
             merkle_root=merkle_root,
-            leader_id=int(os.getenv("NODE_ID", os.getenv("LEADER_ID", "1"))),
+            leader_id=get_signing_leader_id(),
             leader_sig="",
         )
         block_hash = compute_block_hash(candidate)

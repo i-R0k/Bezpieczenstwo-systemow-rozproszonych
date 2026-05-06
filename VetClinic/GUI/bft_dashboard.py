@@ -7,6 +7,13 @@ from .bft_api_client import BftApiClient
 from .bft_qt import ALIGN_CENTER, PASSWORD_ECHO, STRETCH_MODE, QtCore, QtWidgets
 from .bft_widgets import JsonPreviewDialog, LogTable, MetricCard, StatusBadge
 
+STANDALONE_API_URL = "http://127.0.0.1:8000"
+DOCKER_NODE1_URL = "http://127.0.0.1:8001"
+STANDALONE_PEERS_WARNING = (
+    "Standalone API without PEERS detected. Use Docker node1 "
+    "http://127.0.0.1:8001 for 6-node cluster."
+)
+
 
 def _section(payload: dict[str, Any], name: str) -> dict[str, Any]:
     value = payload.get(name)
@@ -111,6 +118,14 @@ class BftDashboardWidget(QtWidgets.QWidget):
 
         self.base_url_input = QtWidgets.QLineEdit(base_url)
         self.base_url_input.setObjectName("base_url_input")
+        self.environment_preset_combo = QtWidgets.QComboBox()
+        self.environment_preset_combo.setObjectName("environment_preset_combo")
+        self.environment_preset_combo.addItem("Standalone API", STANDALONE_API_URL)
+        self.environment_preset_combo.addItem("Docker node1", DOCKER_NODE1_URL)
+        for index in range(self.environment_preset_combo.count()):
+            if self.environment_preset_combo.itemData(index) == base_url.rstrip("/"):
+                self.environment_preset_combo.setCurrentIndex(index)
+                break
         self.admin_token_input = QtWidgets.QLineEdit(admin_token or "")
         self.admin_token_input.setObjectName("admin_token_input")
         self.admin_token_input.setEchoMode(PASSWORD_ECHO)
@@ -125,6 +140,8 @@ class BftDashboardWidget(QtWidgets.QWidget):
 
         self.toolbar.addWidget(QtWidgets.QLabel("Base URL"))
         self.toolbar.addWidget(self.base_url_input, 2)
+        self.toolbar.addWidget(QtWidgets.QLabel("Environment"))
+        self.toolbar.addWidget(self.environment_preset_combo)
         self.toolbar.addWidget(QtWidgets.QLabel("Admin token"))
         self.toolbar.addWidget(self.admin_token_input, 1)
         self.toolbar.addWidget(self.connect_button)
@@ -343,6 +360,7 @@ class BftDashboardWidget(QtWidgets.QWidget):
 
     def _connect_signals(self) -> None:
         self.connect_button.clicked.connect(self.connect_test)
+        self.environment_preset_combo.currentIndexChanged.connect(self._apply_environment_preset)
         self.refresh_button.clicked.connect(self.refresh_all)
         self.refresh_all_button.clicked.connect(self.refresh_all)
         self.auto_refresh.toggled.connect(self._toggle_auto_refresh)
@@ -375,6 +393,18 @@ class BftDashboardWidget(QtWidgets.QWidget):
     def _change_interval(self) -> None:
         self.timer.setInterval(int(self.interval_combo.currentData()))
 
+    def _apply_environment_preset(self) -> None:
+        base_url = self.environment_preset_combo.currentData()
+        if base_url:
+            self.base_url_input.setText(str(base_url))
+
+    def _maybe_show_standalone_peers_warning(self, status: dict[str, Any]) -> bool:
+        nodes = _count(_section(status, "quorum"), "summary", "nodes")
+        if nodes == 1:
+            self._set_status(STANDALONE_PEERS_WARNING)
+            return True
+        return False
+
     def connect_test(self) -> None:
         self._sync_client()
         payload = self.client.get_status()
@@ -401,6 +431,7 @@ class BftDashboardWidget(QtWidgets.QWidget):
             self._set_status(f"API offline: {payloads['status'].get('error')}")
         else:
             self._set_status(f"last refresh {datetime.now().strftime('%H:%M:%S')}")
+            self._maybe_show_standalone_peers_warning(payloads["status"])
         self._update_overview(payloads)
         self._update_protocols(payloads)
         self._update_logs(payloads)

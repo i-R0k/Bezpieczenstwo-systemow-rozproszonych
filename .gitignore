@@ -26,6 +26,14 @@ env/
 *.env
 VetClinic/API/.env
 
+# Local SQLite databases
+*.db
+*.sqlite
+*.sqlite3
+VetClinic/API/*.db
+VetClinic/API/*.sqlite
+VetClinic/API/*.sqlite3
+
 # Generated reports
 reports/**
 !reports/.gitkeep

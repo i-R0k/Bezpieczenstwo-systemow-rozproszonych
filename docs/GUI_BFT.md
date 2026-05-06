@@ -37,7 +37,11 @@ Dashboard:
 ```powershell
 python VetClinic/GUI/run_bft_dashboard.py
 python VetClinic/GUI/run_bft_dashboard.py --base-url http://127.0.0.1:8000
+python VetClinic/GUI/run_bft_dashboard.py --base-url http://127.0.0.1:8001
 ```
+
+Dla klastra Docker wybierz preset `Docker node1` albo ustaw `Base URL` na `http://127.0.0.1:8001`.
+`Total nodes=1` oznacza standalone API bez zmiennej `PEERS`; taki backend raportuje tylko siebie i nie udaje klastra 6 wezlow.
 
 Strict mode:
 
@@ -62,7 +66,7 @@ Klasyczna zakladka `Siec` w panelu administratora pokazuje stan legacy blockchai
 
 Podpis lidera jest weryfikowany wzgledem `leader_id` zapisanego w bloku. Nowe bloki sa podpisywane wspolnym canonical payloadem uzywanym takze przy verify. Starsze demo chain entries bez `leader_id` sa raportowane jako `stale chain format: missing leader_id`, zamiast mylacego ogolnego `invalid leader_sig`.
 
-Przycisk `Reset demo chain` w zakladce `Siec` wywoluje `POST /admin/network/reset-demo-chain` na node1-node6. Uzyj go po zmianie formatu podpisu, po dlugich testach fault injection albo gdy wszystkie wezly pokazuja `STALE`/`INVALID` z powodu starego lokalnego chaina.
+Przycisk `Reset demo chain` w zakladce `Siec` wywoluje `POST /admin/network/reset-demo-chain` na node1-node6. W strict mode wpisz `BFT_ADMIN_TOKEN` w polu `Admin token`, bo endpoint wymaga naglowka `X-BFT-Admin-Token`. Uzyj resetu po zmianie formatu podpisu, po dlugich testach fault injection albo gdy wszystkie wezly pokazuja `STALE`/`INVALID` z powodu starego lokalnego chaina. Jezeli po starym stanie widzisz `invalid leader_sig`, kliknij `Reset demo chain` i odswiez stan klastra.
 
 ## Scenariusz prezentacji
 

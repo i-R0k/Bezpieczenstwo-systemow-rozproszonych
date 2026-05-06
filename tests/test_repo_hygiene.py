@@ -23,6 +23,18 @@ def _tracked_files() -> list[Path]:
     return [ROOT / line for line in completed.stdout.splitlines() if line.strip()]
 
 
+def _git_ls_files() -> list[str]:
+    completed = subprocess.run(
+        ["git", "ls-files"],
+        cwd=ROOT,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=True,
+    )
+    return [line for line in completed.stdout.splitlines() if line.strip()]
+
+
 def test_gitignore_is_clean_and_complete() -> None:
     content = _read(".gitignore")
     assert "contentReference" not in content
@@ -38,6 +50,12 @@ def test_gitignore_is_clean_and_complete() -> None:
         ".venv/",
         ".env",
         "*.env",
+        "*.db",
+        "*.sqlite",
+        "*.sqlite3",
+        "VetClinic/API/*.db",
+        "VetClinic/API/*.sqlite",
+        "VetClinic/API/*.sqlite3",
         "reports/**",
         "pentest/reports/**",
         ".generated_grpc/",
@@ -46,6 +64,23 @@ def test_gitignore_is_clean_and_complete() -> None:
         "dist/",
         "*.egg-info/",
     ]:
+        assert entry in content
+
+
+def test_no_sqlite_databases_are_tracked() -> None:
+    tracked = _git_ls_files()
+    offenders = [
+        path for path in tracked
+        if path.endswith((".db", ".sqlite", ".sqlite3"))
+    ]
+    assert offenders == [], f"SQLite databases must not be tracked: {offenders}"
+
+
+def test_dockerignore_excludes_local_state_and_reports() -> None:
+    path = ROOT / ".dockerignore"
+    assert path.exists()
+    content = path.read_text(encoding="utf-8")
+    for entry in ["*.db", "VetClinic/API/*.db", ".env", "reports/"]:
         assert entry in content
 
 

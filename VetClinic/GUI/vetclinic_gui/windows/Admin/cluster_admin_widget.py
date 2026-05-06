@@ -24,13 +24,16 @@ def format_chain_verify_status(payload: dict[str, Any]) -> tuple[str, str]:
         if explicit_status == "VALID":
             return "VALID", "ok"
         errors = payload.get("errors") or []
-        reason = payload.get("diagnostic") or payload.get("reason")
+        details = payload.get("verification_details") or {}
+        reason = payload.get("diagnostic") or payload.get("reason") or details.get("reason")
         if not reason and errors:
             first = errors[0]
             reason = (
                 f"verify failed at height={first.get('height', first.get('block'))}: "
                 f"{first.get('reason', '?')}"
             )
+        if explicit_status == "STALE" and not reason:
+            reason = "stale chain format: reset required"
         return explicit_status, str(reason or explicit_status.lower())
 
     is_valid = bool(payload.get("valid"))
@@ -84,6 +87,16 @@ class ClusterAdminWidget(QtWidgets.QWidget):
                 self.table.setItem(row, col, QtWidgets.QTableWidgetItem("-"))
 
         layout.addWidget(self.table)
+
+        admin_row = QtWidgets.QHBoxLayout()
+        self.admin_token_input = QtWidgets.QLineEdit()
+        self.admin_token_input.setObjectName("admin_token_input")
+        self.admin_token_input.setPlaceholderText("BFT admin token")
+        self.admin_token_input.setEchoMode(QtWidgets.QLineEdit.EchoMode.Password)
+        admin_row.addWidget(QtWidgets.QLabel("Admin token:"))
+        admin_row.addWidget(self.admin_token_input)
+        admin_row.addStretch(1)
+        layout.addLayout(admin_row)
 
         btn_row = QtWidgets.QHBoxLayout()
         self.btn_refresh = QtWidgets.QPushButton("Odśwież stan klastra")
@@ -201,6 +214,24 @@ class ClusterAdminWidget(QtWidgets.QWidget):
 
     def _get_node_base_url(self, node_id: int) -> str:
         return NODES[node_id].rstrip("/")
+
+    def _admin_headers(self) -> dict[str, str]:
+        token = self.admin_token_input.text().strip()
+        if not token:
+            return {}
+        return {"X-BFT-Admin-Token": token}
+
+    def _response_payload_with_status(self, resp: requests.Response) -> dict[str, Any]:
+        if resp.headers.get("content-type", "").startswith("application/json"):
+            body: Any = resp.json()
+        else:
+            body = {"body": resp.text}
+        if not isinstance(body, dict):
+            body = {"body": body}
+        body.setdefault("status_code", resp.status_code)
+        if resp.status_code in {401, 403}:
+            body.setdefault("reason", "admin token required; fill Admin token field")
+        return body
 
     def refresh_cluster(self) -> None:
         for row, (node_id, base_url) in enumerate(NODES.items()):
@@ -324,14 +355,11 @@ class ClusterAdminWidget(QtWidgets.QWidget):
             try:
                 resp = requests.post(
                     f"{base_url.rstrip('/')}/admin/network/reset-demo-chain",
+                    headers=self._admin_headers(),
                     json={},
                     timeout=5.0,
                 )
-                if resp.headers.get("content-type", "").startswith("application/json"):
-                    body: Any = resp.json()
-                else:
-                    body = {"status_code": resp.status_code, "body": resp.text}
-                results[f"node{node_id}"] = body
+                results[f"node{node_id}"] = self._response_payload_with_status(resp)
             except Exception as exc:
                 results[f"node{node_id}"] = {"status": "error", "error": str(exc)}
 
@@ -376,7 +404,7 @@ class ClusterAdminWidget(QtWidgets.QWidget):
         }
 
         try:
-            resp = requests.put(url, json=payload, timeout=5.0)
+            resp = requests.put(url, headers=self._admin_headers(), json=payload, timeout=5.0)
             resp.raise_for_status()
             self._show_info(f"FAULT_* zaktualizowane:\n{json.dumps(resp.json(), indent=2)}")
         except Exception as exc:
@@ -449,7 +477,7 @@ class ClusterAdminWidget(QtWidgets.QWidget):
         state.setdefault("chaos_delay_ms_max", 300)
         state["traffic_enabled"] = enabled
         try:
-            resp = requests.put(url, json=state, timeout=5.0)
+            resp = requests.put(url, headers=self._admin_headers(), json=state, timeout=5.0)
             resp.raise_for_status()
             self._network_state = resp.json()
         except Exception as exc:

@@ -15,7 +15,7 @@ if str(ROOT) not in sys.path:
 
 try:
     from VetClinic.GUI.bft_api_client import BftApiClient
-    from VetClinic.GUI.bft_dashboard import BftDashboardWindow
+    from VetClinic.GUI.bft_dashboard import BftDashboardWidget, BftDashboardWindow
     from VetClinic.GUI.bft_qt import QtWidgets
     from VetClinic.GUI.bft_widgets import LogTable, MetricCard
     from VetClinic.GUI.vetclinic_gui.windows.Admin.bft_dashboard_widget import (
@@ -68,6 +68,31 @@ def test_bft_dashboard_window_initializes_with_expected_tabs(qapp) -> None:
     label_texts = [label.text() for label in window.findChildren(QtWidgets.QLabel)]
     assert "hidden-token" not in label_texts
     window.close()
+
+
+def test_bft_dashboard_warns_when_status_reports_standalone_without_peers(qapp) -> None:
+    widget = BftDashboardWidget()
+    widget.timer.stop()
+
+    status = {"ok": True, "quorum": {"summary": {"nodes": 1, "quorum": 1}}}
+    assert widget._maybe_show_standalone_peers_warning(status) is True
+
+    assert (
+        "Standalone API without PEERS detected. Use Docker node1 http://127.0.0.1:8001"
+        in widget.status_label.text()
+    )
+    widget.close()
+
+
+def test_bft_dashboard_docker_node1_preset_updates_base_url(qapp) -> None:
+    widget = BftDashboardWidget()
+    widget.timer.stop()
+
+    docker_index = widget.environment_preset_combo.findText("Docker node1")
+    widget.environment_preset_combo.setCurrentIndex(docker_index)
+
+    assert widget.base_url_input.text() == "http://127.0.0.1:8001"
+    widget.close()
 
 
 def test_bft_dashboard_is_available_for_admin_panel(qapp) -> None:
