@@ -252,6 +252,9 @@ class BftDashboardWidget(QtWidgets.QWidget):
             ("checkpoint_certificates", "Certificates"),
             ("recovery_transfers", "Transfers"),
             ("recovery_nodes", "Recovered nodes"),
+            ("fault_rules", "Fault rules"),
+            ("fault_injected", "Injected faults"),
+            ("fault_partitions", "Partitions"),
         ]
         for idx, (key, title) in enumerate(items):
             card = MetricCard(title)
@@ -281,9 +284,13 @@ class BftDashboardWidget(QtWidgets.QWidget):
     def _build_demo_tab(self) -> None:
         tab = QtWidgets.QWidget()
         layout = QtWidgets.QVBoxLayout(tab)
-        row = QtWidgets.QHBoxLayout()
-        self.scenario_cluster_button = QtWidgets.QPushButton("Scenario 1: Cluster dashboard")
-        self.scenario_full_flow_button = QtWidgets.QPushButton("Scenario 2: Full BFT operation")
+
+        actions_group = QtWidgets.QGroupBox("Demo scenarios and actions")
+        actions_layout = QtWidgets.QGridLayout(actions_group)
+        self.scenario_cluster_button = QtWidgets.QPushButton("S1: Cluster")
+        self.scenario_full_flow_button = QtWidgets.QPushButton("S2: Full BFT")
+        self.scenario_logical_processes_button = QtWidgets.QPushButton("S3: BFT logic")
+        self.scenario_recovery_process_button = QtWidgets.QPushButton("S4: Recovery logic")
         self.run_demo_button = QtWidgets.QPushButton("Run full BFT demo")
         self.grpc_ping_button = QtWidgets.QPushButton("Run gRPC ping demo")
         self.reset_demo_chain_button = QtWidgets.QPushButton("Reset demo chain")
@@ -293,6 +300,8 @@ class BftDashboardWidget(QtWidgets.QWidget):
         for button in [
             self.scenario_cluster_button,
             self.scenario_full_flow_button,
+            self.scenario_logical_processes_button,
+            self.scenario_recovery_process_button,
             self.run_demo_button,
             self.grpc_ping_button,
             self.reset_demo_chain_button,
@@ -300,8 +309,43 @@ class BftDashboardWidget(QtWidgets.QWidget):
             self.open_last_report_button,
             self.clear_faults_button,
         ]:
-            row.addWidget(button)
-        layout.addLayout(row)
+            button.setMinimumHeight(34)
+            size_policy = getattr(QtWidgets.QSizePolicy, "Policy", QtWidgets.QSizePolicy)
+            button.setSizePolicy(size_policy.Expanding, size_policy.Fixed)
+        for idx, button in enumerate(
+            [
+                self.scenario_cluster_button,
+                self.scenario_full_flow_button,
+                self.scenario_logical_processes_button,
+                self.scenario_recovery_process_button,
+                self.run_demo_button,
+                self.grpc_ping_button,
+                self.reset_demo_chain_button,
+                self.refresh_all_button,
+                self.open_last_report_button,
+                self.clear_faults_button,
+            ]
+        ):
+            actions_layout.addWidget(button, idx // 4, idx % 4)
+        layout.addWidget(actions_group)
+
+        swim_group = QtWidgets.QGroupBox("SWIM membership control")
+        swim_layout = QtWidgets.QHBoxLayout(swim_group)
+        self.swim_node_spin = QtWidgets.QSpinBox()
+        self.swim_node_spin.setRange(1, 999)
+        self.swim_node_spin.setValue(2)
+        self.swim_status_combo = QtWidgets.QComboBox()
+        for value in ["ALIVE", "SUSPECT", "DEAD", "RECOVERING"]:
+            self.swim_status_combo.addItem(value)
+        self.swim_apply_button = QtWidgets.QPushButton("Apply SWIM status")
+        swim_layout.addWidget(QtWidgets.QLabel("node_id"))
+        swim_layout.addWidget(self.swim_node_spin)
+        swim_layout.addWidget(QtWidgets.QLabel("status"))
+        swim_layout.addWidget(self.swim_status_combo)
+        swim_layout.addWidget(self.swim_apply_button)
+        swim_layout.addStretch(1)
+        layout.addWidget(swim_group)
+
         self.demo_output = QtWidgets.QTextEdit()
         self.demo_output.setReadOnly(True)
         layout.addWidget(self.demo_output)
@@ -400,11 +444,14 @@ class BftDashboardWidget(QtWidgets.QWidget):
         self.protocol_filter.currentIndexChanged.connect(self._apply_log_filter)
         self.scenario_cluster_button.clicked.connect(self.run_schedule_scenario_cluster_dashboard)
         self.scenario_full_flow_button.clicked.connect(self.run_schedule_scenario_full_bft_operation)
+        self.scenario_logical_processes_button.clicked.connect(self.run_schedule_scenario_logical_processes)
+        self.scenario_recovery_process_button.clicked.connect(self.run_schedule_scenario_recovery_process)
         self.run_demo_button.clicked.connect(self.run_full_demo)
         self.grpc_ping_button.clicked.connect(self.run_grpc_ping_demo)
         self.reset_demo_chain_button.clicked.connect(self.reset_demo_chain)
         self.open_last_report_button.clicked.connect(self.open_last_report)
         self.clear_faults_button.clicked.connect(self.clear_faults)
+        self.swim_apply_button.clicked.connect(self.apply_swim_member_status)
         self.add_fault_button.clicked.connect(self.add_fault_rule)
         self.clear_all_faults_button.clicked.connect(self.clear_faults)
         self.totp_setup_button.clicked.connect(self.setup_totp)
@@ -523,6 +570,7 @@ class BftDashboardWidget(QtWidgets.QWidget):
         swim = payloads["swim"]
         checkpointing = payloads["checkpointing"]
         recovery = payloads["recovery"]
+        faults = payloads["faults"]
         self.protocol_cards["narwhal_batches"].set_value(_count(narwhal_status, "batch_count"))
         self.protocol_cards["narwhal_dag"].set_value(payloads["narwhal"].get("total_batches", "-"))
         self.protocol_cards["narwhal_tips"].set_value(len(payloads["narwhal"].get("tips", []) or []))
@@ -537,6 +585,9 @@ class BftDashboardWidget(QtWidgets.QWidget):
         self.protocol_cards["checkpoint_certificates"].set_value(len(checkpointing.get("certificates", []) or []))
         self.protocol_cards["recovery_transfers"].set_value(len(recovery.get("transfers", []) or []))
         self.protocol_cards["recovery_nodes"].set_value(len(recovery.get("recovered_nodes", []) or []))
+        self.protocol_cards["fault_rules"].set_value(len(faults.get("rules", []) or []))
+        self.protocol_cards["fault_injected"].set_value(len(faults.get("injected_faults", []) or []))
+        self.protocol_cards["fault_partitions"].set_value(len(faults.get("partitions", []) or []))
 
     def _filtered(self, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         selected = self.protocol_filter.currentText()
@@ -647,6 +698,199 @@ class BftDashboardWidget(QtWidgets.QWidget):
         self._show_json("Scenario 2: Full BFT operation", payload)
         self.refresh_all()
 
+    def run_schedule_scenario_logical_processes(self) -> None:
+        self._sync_client()
+        clear_result = self.client.clear_faults()
+        demo_report = self.client.run_full_demo()
+        events = self.client.get_events(limit=100)
+        communication = self.client.get_communication_log(limit=100)
+        timeline = self._build_logical_process_timeline(demo_report)
+        event_messages = [
+            event.get("message")
+            for event in (events.get("events") or [])
+            if isinstance(event, dict)
+        ]
+        required_event_messages = {
+            "batch_created",
+            "batch_certified",
+            "hotstuff_proposal_created",
+            "hotstuff_vote_recorded",
+            "hotstuff_qc_formed",
+            "hotstuff_block_committed",
+            "checkpoint_certificate_formed",
+            "state_transfer_applied",
+        }
+        payload = {
+            "scenario": "Scenario 3 - logical processes",
+            "goal": "client operation -> Narwhal -> HotStuff -> commit -> checkpoint/recovery",
+            "clear_faults": clear_result,
+            "demo_report": demo_report,
+            "logical_processes": timeline,
+            "communication_log": communication.get("messages", []),
+            "recent_events": events.get("events", []),
+            "passed": (
+                demo_report.get("status") == "ok"
+                and demo_report.get("final_operation_status") == "EXECUTED"
+                and bool(demo_report.get("checkpoint_id"))
+                and required_event_messages.issubset(set(event_messages))
+            ),
+        }
+        self.demo_output.setPlainText(str(payload))
+        self._show_json("Scenario 3: Logical processes", payload)
+        self.refresh_all()
+
+    @staticmethod
+    def _build_logical_process_timeline(demo_report: dict[str, Any]) -> list[dict[str, Any]]:
+        details_by_step = {
+            step.get("name"): step.get("details", {})
+            for step in (demo_report.get("steps") or [])
+            if isinstance(step, dict)
+        }
+        operation_id = demo_report.get("operation_id")
+        return [
+            {
+                "order": 1,
+                "process": "Client/API",
+                "shows": "operation accepted into BFT operation store",
+                "evidence": {
+                    "operation_id": operation_id,
+                    "status": details_by_step.get("Submit operation", {}).get("status"),
+                },
+            },
+            {
+                "order": 2,
+                "process": "Narwhal availability",
+                "shows": "operation is batched and certified before consensus ordering",
+                "evidence": {
+                    "batch_id": details_by_step.get("Narwhal", {}).get("batch_id"),
+                    "certificate": bool(details_by_step.get("Narwhal", {}).get("certificate")),
+                },
+            },
+            {
+                "order": 3,
+                "process": "HotStuff consensus",
+                "shows": "leader proposal, votes, quorum certificate, and commit",
+                "evidence": {
+                    "proposal_id": details_by_step.get("HotStuff", {}).get("proposal_id"),
+                    "qc_id": details_by_step.get("HotStuff", {}).get("qc_id"),
+                    "commit_id": details_by_step.get("HotStuff", {}).get("commit_id"),
+                },
+            },
+            {
+                "order": 4,
+                "process": "State machine execution",
+                "shows": "committed operation reaches terminal EXECUTED state",
+                "evidence": {
+                    "operation_id": operation_id,
+                    "final_status": demo_report.get("final_operation_status"),
+                },
+            },
+            {
+                "order": 5,
+                "process": "Checkpointing",
+                "shows": "executed state is snapshotted and checkpoint-certified",
+                "evidence": {
+                    "checkpoint_id": demo_report.get("checkpoint_id"),
+                    "state_hash": details_by_step.get("Checkpoint", {}).get("state_hash"),
+                },
+            },
+            {
+                "order": 6,
+                "process": "Recovery/state transfer",
+                "shows": "recovering node applies checkpoint and returns to alive state",
+                "evidence": {
+                    "node_id": demo_report.get("recovered_node_id"),
+                    "status": details_by_step.get("Recovery", {}).get("status"),
+                },
+            },
+        ]
+
+    def run_schedule_scenario_recovery_process(self) -> None:
+        self._sync_client()
+        clear_result = self.client.clear_faults()
+        demo_report = self.client.run_full_demo()
+        dead = self.client.set_swim_member_status(2, "DEAD")
+        recovering = self.client.set_swim_member_status(2, "RECOVERING")
+        alive = self.client.set_swim_member_status(2, "ALIVE")
+        swim = self.client.get_swim_status()
+        events = self.client.get_events(limit=100)
+        communication = self.client.get_communication_log(limit=100)
+        payload = {
+            "scenario": "Scenario 4 - recovery logical process",
+            "goal": "SWIM failure state -> recovery state -> alive membership",
+            "clear_faults": clear_result,
+            "demo_report": {
+                "status": demo_report.get("status"),
+                "checkpoint_id": demo_report.get("checkpoint_id"),
+                "recovered_node_id": demo_report.get("recovered_node_id"),
+            },
+            "logical_processes": self._build_recovery_process_timeline(dead, recovering, alive, swim),
+            "swim_status": swim,
+            "communication_log": communication.get("messages", []),
+            "recent_events": events.get("events", []),
+            "passed": (
+                demo_report.get("status") == "ok"
+                and dead.get("status") == "DEAD"
+                and recovering.get("status") == "RECOVERING"
+                and alive.get("status") == "ALIVE"
+            ),
+        }
+        self.demo_output.setPlainText(str(payload))
+        self._show_json("Scenario 4: Recovery logical process", payload)
+        self.refresh_all()
+
+    @staticmethod
+    def _build_recovery_process_timeline(
+        dead: dict[str, Any],
+        recovering: dict[str, Any],
+        alive: dict[str, Any],
+        swim: dict[str, Any],
+    ) -> list[dict[str, Any]]:
+        return [
+            {
+                "order": 1,
+                "process": "Failure detection",
+                "shows": "node is removed from consensus eligibility by DEAD membership state",
+                "evidence": {
+                    "node_id": dead.get("node_id"),
+                    "status": dead.get("status"),
+                    "incarnation": dead.get("incarnation"),
+                },
+            },
+            {
+                "order": 2,
+                "process": "Recovery gate",
+                "shows": "node is explicitly marked RECOVERING before it can safely rejoin",
+                "evidence": {
+                    "node_id": recovering.get("node_id"),
+                    "status": recovering.get("status"),
+                    "incarnation": recovering.get("incarnation"),
+                },
+            },
+            {
+                "order": 3,
+                "process": "Membership rejoin",
+                "shows": "node returns to ALIVE with suspicion reset and incremented incarnation after DEAD",
+                "evidence": {
+                    "node_id": alive.get("node_id"),
+                    "status": alive.get("status"),
+                    "incarnation": alive.get("incarnation"),
+                    "suspicion_count": alive.get("suspicion_count"),
+                },
+            },
+            {
+                "order": 4,
+                "process": "Cluster view",
+                "shows": "SWIM status reflects the updated logical membership",
+                "evidence": {
+                    "alive": swim.get("alive"),
+                    "suspect": swim.get("suspect"),
+                    "dead": swim.get("dead"),
+                    "recovering": swim.get("recovering"),
+                },
+            },
+        ]
+
     def run_grpc_ping_demo(self) -> None:
         payload = self.client.run_grpc_ping_demo()
         self.demo_output.setPlainText(str(payload))
@@ -673,6 +917,15 @@ class BftDashboardWidget(QtWidgets.QWidget):
     def clear_faults(self) -> None:
         payload = self.client.clear_faults()
         self._show_json("Clear faults", payload)
+        self.refresh_all()
+
+    def apply_swim_member_status(self) -> None:
+        self._sync_client()
+        node_id = self.swim_node_spin.value()
+        status = self.swim_status_combo.currentText()
+        payload = self.client.set_swim_member_status(node_id, status)
+        self.demo_output.setPlainText(str(payload))
+        self._show_json(f"Set node{node_id} {status}", payload)
         self.refresh_all()
 
     def add_fault_rule(self) -> None:

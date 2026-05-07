@@ -209,6 +209,7 @@ def test_create_doctor_endpoint(monkeypatch):
             "permit_number": doc_in.permit_number, "facility_id": doc_in.facility_id
         })
     monkeypatch.setattr("vetclinic_api.crud.doctors.create_doctor", fake_create_doctor)
+    monkeypatch.setattr("vetclinic_api.routers.doctors.create_doctor", fake_create_doctor)
     # Mock db.query(Doctor).filter_by(email=...).first()
     class DummyDB:
         def query(self, model):

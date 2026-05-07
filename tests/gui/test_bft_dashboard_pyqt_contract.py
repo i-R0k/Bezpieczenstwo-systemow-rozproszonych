@@ -35,6 +35,22 @@ def test_bft_api_client_builds_urls_and_admin_header() -> None:
     assert client._headers() == {"X-BFT-Admin-Token": "secret-token"}
 
 
+def test_bft_api_client_can_set_swim_member_status(monkeypatch) -> None:
+    calls = []
+
+    def fake_request(self, method, path, **kwargs):
+        calls.append((method, path, kwargs))
+        return {"ok": True, "node_id": 2, "status": "ALIVE"}
+
+    monkeypatch.setattr(BftApiClient, "_request", fake_request)
+    client = BftApiClient("http://127.0.0.1:8000/")
+
+    payload = client.set_swim_member_status(2, "ALIVE")
+
+    assert payload["status"] == "ALIVE"
+    assert calls == [("PUT", "/bft/swim/members/2/alive", {})]
+
+
 def test_bft_dashboard_runner_help_returns_cli_options() -> None:
     completed = subprocess.run(
         [sys.executable, "VetClinic/GUI/run_bft_dashboard.py", "--help"],
@@ -68,8 +84,11 @@ def test_bft_dashboard_window_initializes_with_expected_tabs(qapp) -> None:
     label_texts = [label.text() for label in window.findChildren(QtWidgets.QLabel)]
     assert "hidden-token" not in label_texts
     button_texts = [button.text() for button in window.findChildren(QtWidgets.QPushButton)]
-    assert "Scenario 1: Cluster dashboard" in button_texts
-    assert "Scenario 2: Full BFT operation" in button_texts
+    assert "S1: Cluster" in button_texts
+    assert "S2: Full BFT" in button_texts
+    assert "S3: BFT logic" in button_texts
+    assert "S4: Recovery logic" in button_texts
+    assert "Apply SWIM status" in button_texts
     window.close()
 
 
@@ -211,6 +230,155 @@ def test_bft_dashboard_scenario_2_full_bft_operation_passes(qapp, monkeypatch) -
 
     assert "'passed': True" in widget.demo_output.toPlainText()
     assert scenario_name in widget.demo_output.toPlainText()
+    widget.close()
+
+
+def test_bft_dashboard_scenario_3_logical_processes_passes(qapp, monkeypatch) -> None:
+    scenario_name = "Scenario 3 - logical processes"
+    widget = BftDashboardWidget(base_url="http://127.0.0.1:8001")
+    widget.timer.stop()
+    monkeypatch.setattr(widget, "_show_json", lambda *args, **kwargs: None)
+    monkeypatch.setattr(widget, "refresh_all", lambda: None)
+    report = {
+        "ok": True,
+        "status": "ok",
+        "operation_id": "operation-1",
+        "final_operation_status": "EXECUTED",
+        "checkpoint_id": "checkpoint-1",
+        "recovered_node_id": 3,
+        "steps": [
+            {"name": "Submit operation", "details": {"operation_id": "operation-1", "status": "RECEIVED"}},
+            {"name": "Narwhal", "details": {"batch_id": "batch-1", "certificate": {"batch_id": "batch-1"}}},
+            {"name": "HotStuff", "details": {"proposal_id": "proposal-1", "qc_id": "qc-1", "commit_id": "commit-1"}},
+            {"name": "Execute", "details": {"status": "EXECUTED"}},
+            {"name": "Checkpoint", "details": {"checkpoint_id": "checkpoint-1", "state_hash": "hash-1"}},
+            {"name": "Recovery", "details": {"node_id": 3, "status": "RECOVERED"}},
+        ],
+    }
+    events = {
+        "ok": True,
+        "events": [
+            {"message": "batch_created"},
+            {"message": "batch_certified"},
+            {"message": "hotstuff_proposal_created"},
+            {"message": "hotstuff_vote_recorded"},
+            {"message": "hotstuff_qc_formed"},
+            {"message": "hotstuff_block_committed"},
+            {"message": "checkpoint_certificate_formed"},
+            {"message": "state_transfer_applied"},
+        ],
+    }
+
+    monkeypatch.setattr(BftApiClient, "clear_faults", lambda self: {"ok": True})
+    monkeypatch.setattr(BftApiClient, "run_full_demo", lambda self: report)
+    monkeypatch.setattr(BftApiClient, "get_events", lambda self, limit=50: events)
+    monkeypatch.setattr(
+        BftApiClient,
+        "get_communication_log",
+        lambda self, limit=50: {"ok": True, "messages": [{"message_kind": "PROPOSAL"}]},
+    )
+
+    widget.run_schedule_scenario_logical_processes()
+
+    output = widget.demo_output.toPlainText()
+    assert "'passed': True" in output
+    assert scenario_name in output
+    assert "HotStuff consensus" in output
+    assert "Recovery/state transfer" in output
+    widget.close()
+
+
+def test_bft_dashboard_scenario_4_recovery_process_passes(qapp, monkeypatch) -> None:
+    scenario_name = "Scenario 4 - recovery logical process"
+    widget = BftDashboardWidget(base_url="http://127.0.0.1:8001")
+    widget.timer.stop()
+    calls = []
+    monkeypatch.setattr(widget, "_show_json", lambda *args, **kwargs: None)
+    monkeypatch.setattr(widget, "refresh_all", lambda: None)
+
+    def fake_set_status(self, node_id, status):
+        calls.append((node_id, status))
+        return {
+            "ok": True,
+            "node_id": node_id,
+            "status": status,
+            "incarnation": len(calls),
+            "suspicion_count": 0,
+        }
+
+    monkeypatch.setattr(BftApiClient, "clear_faults", lambda self: {"ok": True})
+    monkeypatch.setattr(
+        BftApiClient,
+        "run_full_demo",
+        lambda self: {"ok": True, "status": "ok", "checkpoint_id": "checkpoint-1", "recovered_node_id": 3},
+    )
+    monkeypatch.setattr(BftApiClient, "set_swim_member_status", fake_set_status)
+    monkeypatch.setattr(
+        BftApiClient,
+        "get_swim_status",
+        lambda self: {"ok": True, "alive": 6, "suspect": 0, "dead": 0, "recovering": 0},
+    )
+    monkeypatch.setattr(BftApiClient, "get_events", lambda self, limit=50: {"ok": True, "events": []})
+    monkeypatch.setattr(BftApiClient, "get_communication_log", lambda self, limit=50: {"ok": True, "messages": []})
+
+    widget.run_schedule_scenario_recovery_process()
+
+    output = widget.demo_output.toPlainText()
+    assert calls == [(2, "DEAD"), (2, "RECOVERING"), (2, "ALIVE")]
+    assert "'passed': True" in output
+    assert scenario_name in output
+    assert "Failure detection" in output
+    assert "Membership rejoin" in output
+    widget.close()
+
+
+def test_bft_dashboard_can_mark_dead_node_alive(qapp, monkeypatch) -> None:
+    widget = BftDashboardWidget(base_url="http://127.0.0.1:8001")
+    widget.timer.stop()
+    calls = []
+    monkeypatch.setattr(widget, "_show_json", lambda *args, **kwargs: None)
+    monkeypatch.setattr(widget, "refresh_all", lambda: None)
+
+    def fake_set_status(self, node_id, status):
+        calls.append((node_id, status))
+        return {"ok": True, "node_id": node_id, "status": status}
+
+    monkeypatch.setattr(BftApiClient, "set_swim_member_status", fake_set_status)
+    widget.swim_node_spin.setValue(2)
+    widget.swim_status_combo.setCurrentText("ALIVE")
+
+    widget.apply_swim_member_status()
+
+    assert calls == [(2, "ALIVE")]
+    assert "'status': 'ALIVE'" in widget.demo_output.toPlainText()
+    widget.close()
+
+
+def test_bft_dashboard_protocols_show_fault_indicators(qapp) -> None:
+    widget = BftDashboardWidget(base_url="http://127.0.0.1:8001")
+    widget.timer.stop()
+    payloads = {
+        "status": {
+            "narwhal": {"batch_count": 0},
+            "hotstuff": {"view": 0, "proposal_count": 0, "qc_count": 0, "commit_count": 0},
+        },
+        "hotstuff": {"view_state": {"leader_id": 1}},
+        "narwhal": {"total_batches": 0, "tips": []},
+        "swim": {"alive": 6, "suspect": 0, "dead": 0, "recovering": 0},
+        "checkpointing": {"snapshots": [], "certificates": []},
+        "recovery": {"transfers": [], "recovered_nodes": []},
+        "faults": {
+            "rules": [{"rule_id": "rule-1"}],
+            "injected_faults": [{"fault_id": "fault-1"}],
+            "partitions": [{"partition_id": "partition-1"}],
+        },
+    }
+
+    widget._update_protocols(payloads)
+
+    assert widget.protocol_cards["fault_rules"].value_label.text() == "1"
+    assert widget.protocol_cards["fault_injected"].value_label.text() == "1"
+    assert widget.protocol_cards["fault_partitions"].value_label.text() == "1"
     widget.close()
 
 

@@ -1,12 +1,16 @@
 {
+    "python.testing.cwd": "${workspaceFolder}",
     "python.testing.pytestArgs": [
-        "VetClinic"
+        "tests",
+        "VetClinic/API/tests",
+        "VetClinic/GUI/tests"
     ],
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
+    "python.testing.autoTestDiscoverOnSaveEnabled": true,
     "python.analysis.extraPaths": [
-        "./VetClinic/API/app",
-        "./VetClinic/API"
+        "./VetClinic/API",
+        "./VetClinic/GUI"
     ],
     "cSpell.words": [
         "endpointów",

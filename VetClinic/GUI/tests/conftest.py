@@ -7,7 +7,6 @@ import sys
 from pathlib import Path
 
 import pytest
-from PyQt6.QtWidgets import QApplication
 
 # Ensure Qt runs offscreen before any PyQt import.
 def pytest_configure():
@@ -24,6 +23,14 @@ API_ROOT = Path(__file__).resolve().parents[2] / "API"
 if str(API_ROOT) not in sys.path:
     sys.path.insert(0, str(API_ROOT))
 
+try:
+    from bft_qt import QtWidgets
+except Exception as exc:  # pragma: no cover - environment dependent
+    pytest.skip(
+        f"PyQt5 or PyQt6 is required for GUI tests; install requirements-gui.txt: {exc}",
+        allow_module_level=True,
+    )
+
 
 @pytest.fixture(scope="session")
 def qapp():
@@ -31,9 +38,9 @@ def qapp():
     Override pytest-qt's qapp to keep a shared QApplication alive without
     hard-closing it at session end (mitigates teardown crashes on Windows).
     """
-    app = QApplication.instance()
+    app = QtWidgets.QApplication.instance()
     if app is None:
-        app = QApplication(["pytest"])
+        app = QtWidgets.QApplication(["pytest"])
     app.setQuitOnLastWindowClosed(False)
     yield app
     app.processEvents()
@@ -68,9 +75,7 @@ def _cleanup_qt_widgets(qapp):
     Final guard: close and delete any top-level widgets that may still be alive.
     """
     yield
-    from PyQt6.QtWidgets import QApplication
-
-    for w in list(QApplication.topLevelWidgets()):
+    for w in list(QtWidgets.QApplication.topLevelWidgets()):
         try:
             w.close()
             w.deleteLater()

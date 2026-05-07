@@ -68,8 +68,11 @@ def _reset_network_state() -> None:
 @pytest.fixture(autouse=True)
 def leader_keys_env(monkeypatch):
     priv, pub = generate_keypair()
+    monkeypatch.setenv("LEADER_ID", "1")
+    monkeypatch.setenv("NODE_ID", "1")
     monkeypatch.setenv("LEADER_PRIV_KEY", priv)
     monkeypatch.setenv("LEADER_PUB_KEY", pub)
+    monkeypatch.setenv("NODE_1_PUB_KEY", pub)
     yield
 
 

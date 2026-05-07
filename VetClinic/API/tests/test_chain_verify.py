@@ -12,8 +12,11 @@ from vetclinic_api.crypto.ed25519 import generate_keypair
 
 def test_chain_verify_detects_tampered_previous_hash(monkeypatch):
     priv, pub = generate_keypair()
+    monkeypatch.setenv("LEADER_ID", "1")
+    monkeypatch.setenv("NODE_ID", "1")
     monkeypatch.setenv("LEADER_PRIV_KEY", priv)
     monkeypatch.setenv("LEADER_PUB_KEY", pub)
+    monkeypatch.setenv("NODE_1_PUB_KEY", pub)
 
     storage = InMemoryStorage()
     app.dependency_overrides[get_storage] = lambda: storage

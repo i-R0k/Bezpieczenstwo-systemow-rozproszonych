@@ -44,7 +44,7 @@ Kroki:
 
 1. Uruchom `docker compose up -d node1 node2 node3 node4 node5 node6`.
 2. Uruchom GUI z `--base-url http://127.0.0.1:8001`.
-3. W `Demo actions` kliknij `Scenario 1: Cluster dashboard`.
+3. W `Demo actions` kliknij `S1: Cluster`.
 
 Oczekiwany wynik testowy:
 
@@ -63,7 +63,7 @@ checkpointingu i recovery.
 
 Kroki:
 
-1. W `Demo actions` kliknij `Scenario 2: Full BFT operation`.
+1. W `Demo actions` kliknij `S2: Full BFT`.
 2. GUI najpierw czysci faults, potem uruchamia pelny demo flow i pobiera raport.
 3. Pokaz `Overview`, `Protocols` i `Live logs`.
 
@@ -74,6 +74,48 @@ final_operation_status = EXECUTED
 checkpoint_id = present
 recovered_node_id = 3
 steps contain Submit operation, Narwhal, HotStuff, Execute, Checkpoint, Recovery
+passed = True
+```
+
+### Scenario 3 - logical processes
+
+Mozliwe wykorzystanie przez usera: prowadzacy chce pokazac procesy logiczne
+bez recznego laczenia danych z raportu, event logu i communication logu.
+
+Kroki:
+
+1. W `Demo actions` kliknij `S3: BFT logic`.
+2. GUI czysci faults, uruchamia pelny demo flow i pobiera eventy oraz communication log.
+3. W oknie JSON pokaz `logical_processes`.
+4. Przejdz do `Live logs`, zeby pokazac te same zdarzenia jako log protokolow.
+
+Oczekiwany wynik testowy:
+
+```text
+logical_processes contain Client/API, Narwhal availability, HotStuff consensus,
+State machine execution, Checkpointing, Recovery/state transfer
+final_operation_status = EXECUTED
+passed = True
+```
+
+### Scenario 4 - recovery logical process
+
+Mozliwe wykorzystanie przez usera: prowadzacy chce pokazac drugi proces
+logiczny zwiazany z awaria wezla, recovery gate i powrotem do klastra.
+
+Kroki:
+
+1. W `Demo actions` kliknij `S4: Recovery logic`.
+2. GUI uruchamia pelny demo flow, zeby miec checkpoint/recovery context.
+3. GUI ustawia node2 kolejno jako `DEAD`, `RECOVERING` i `ALIVE`.
+4. W oknie JSON pokaz `logical_processes` oraz aktualny `swim_status`.
+
+Oczekiwany wynik testowy:
+
+```text
+logical_processes contain Failure detection, Recovery gate, Membership rejoin,
+Cluster view
+node2 status sequence = DEAD -> RECOVERING -> ALIVE
 passed = True
 ```
 

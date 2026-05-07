@@ -17,6 +17,7 @@ try:
     from VetClinic.GUI.vetclinic_gui.windows.Admin.cluster_admin_widget import (
         ClusterAdminWidget,
         format_chain_verify_status,
+        format_faults_status,
     )
 except Exception as exc:  # pragma: no cover - environment dependent
     pytest.skip(
@@ -66,6 +67,24 @@ def test_unverified_status_is_distinct_from_invalid() -> None:
     )
     assert status == "UNVERIFIED"
     assert reason == "node response unavailable"
+
+
+def test_faults_status_lists_active_faults() -> None:
+    summary = format_faults_status(
+        {
+            "offline": True,
+            "byzantine": False,
+            "flapping": True,
+            "flapping_mod": 3,
+            "slow_ms": 250,
+            "drop_rpc_prob": 0.5,
+        }
+    )
+
+    assert "OFFLINE" in summary
+    assert "FLAPPING/3" in summary
+    assert "SLOW=250ms" in summary
+    assert "DROP_RPC=0.50" in summary
 
 
 class _FakeResponse:
@@ -137,4 +156,46 @@ def test_reset_demo_chain_403_shows_admin_token_reason(monkeypatch, qapp) -> Non
 
     assert "status_code" in widget.text_details.toPlainText()
     assert "admin token required; fill Admin token field" in widget.text_details.toPlainText()
+    widget.close()
+
+
+def test_refresh_cluster_shows_active_faults_in_table(monkeypatch, qapp) -> None:
+    monkeypatch.setattr(ClusterAdminWidget, "_load_network_state", lambda self: None)
+    def fake_get(url, **kwargs):
+        if url.endswith("/chain/status"):
+            return _FakeResponse(200, {"height": 1, "last_block_hash": "abcdef123456"})
+        if url.endswith("/chain/verify"):
+            return _FakeResponse(200, {"verification_status": "VALID", "valid": True})
+        if url.endswith("/admin/faults") and "localhost:8002" in url:
+            return _FakeResponse(
+                200,
+                {
+                    "offline": True,
+                    "byzantine": False,
+                    "flapping": False,
+                    "slow_ms": 0,
+                    "flapping_mod": 0,
+                    "drop_rpc_prob": 0.0,
+                },
+            )
+        if url.endswith("/admin/faults"):
+            return _FakeResponse(
+                200,
+                {
+                    "offline": False,
+                    "byzantine": False,
+                    "flapping": False,
+                    "slow_ms": 0,
+                    "flapping_mod": 0,
+                    "drop_rpc_prob": 0.0,
+                },
+            )
+        raise AssertionError(url)
+
+    monkeypatch.setattr(cluster_admin_widget.requests, "get", fake_get)
+    widget = ClusterAdminWidget()
+
+    widget.refresh_cluster()
+
+    assert "FAULT_* OFFLINE" in widget.table.item(1, 5).text()
     widget.close()

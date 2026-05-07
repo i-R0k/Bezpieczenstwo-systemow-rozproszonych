@@ -71,6 +71,10 @@ class BftApiClient:
     def get_swim_status(self) -> dict[str, Any]:
         return self._request("GET", "/bft/swim/status")
 
+    def set_swim_member_status(self, node_id: int, status: str) -> dict[str, Any]:
+        normalized = status.strip().lower()
+        return self._request("PUT", f"/bft/swim/members/{node_id}/{normalized}")
+
     def get_hotstuff_status(self) -> dict[str, Any]:
         return self._request("GET", "/bft/hotstuff/status")
 

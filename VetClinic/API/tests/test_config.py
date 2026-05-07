@@ -17,12 +17,23 @@ def block_dotenv(monkeypatch):
     monkeypatch.setattr("dotenv.load_dotenv", lambda *args, **kwargs: None)
 
 
-def test_config_file_not_found(monkeypatch):
+def test_config_file_not_found_uses_defaults(monkeypatch):
     unload_module()
     # Always pretend .env does not exist
     monkeypatch.setattr(pathlib.Path, "exists", lambda self: False)
-    with pytest.raises(FileNotFoundError):
-        importlib.import_module(MODULE_PATH)
+    monkeypatch.delenv("SECRET_KEY", raising=False)
+    monkeypatch.delenv("SMTP_HOST", raising=False)
+    monkeypatch.delenv("SMTP_PORT", raising=False)
+    monkeypatch.delenv("SMTP_USER", raising=False)
+    monkeypatch.delenv("SMTP_PASS", raising=False)
+    monkeypatch.delenv("SMTP_FROM", raising=False)
+
+    config = importlib.import_module(MODULE_PATH)
+
+    assert config.API_BASE_URL == "http://127.0.0.1:8000"
+    assert config.SECRET_KEY == "twoj_sekret"
+    assert config.SMTP_PORT == 465
+    assert config.DATABASE_URL.startswith("sqlite:///")
 
 
 def test_config_loads_env_and_defaults(monkeypatch):

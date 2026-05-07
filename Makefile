@@ -26,7 +26,7 @@ help:
 	@echo "  make test-pentest            - pentest harness contract tests"
 	@echo "  make run-bft-dashboard       - uruchomienie PyQt BFT Dashboard"
 	@echo "  make test-gui                - testy kontraktowe GUI"
-	@echo "  make test-all                - testy BFT/security/pentest/GUI"
+	@echo "  make test-all                - pelny zestaw testow z pytest.ini"
 	@echo "  make lint                    - ruff + mypy + bandit, jesli sa dostepne"
 	@echo "  make scenario-healthy        - scenariusz: wszyscy zdrowi"
 	@echo "  make scenario-faults1        - scenariusz: offline + slow"
@@ -47,7 +47,7 @@ test:
 
 .PHONY: test-all
 test-all:
-	python -m pytest tests/bft tests/security tests/pentest tests/gui -q
+	python -m pytest -q
 
 .PHONY: test-bft
 test-bft:

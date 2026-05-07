@@ -75,6 +75,34 @@
       border-radius: 4px;
       font-size: 12px;
     }
+    .control-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid #eef1f5;
+    }
+    input, select, button {
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      background: #ffffff;
+      color: var(--text);
+      padding: 6px 8px;
+      font: inherit;
+    }
+    input { width: 74px; }
+    button {
+      cursor: pointer;
+      background: #eef3f8;
+      font-weight: 600;
+    }
+    button:hover { background: #e3ebf4; }
+    #swim-action-result {
+      min-width: 160px;
+      color: var(--muted);
+    }
     .error { color: #b42318; }
     @media (max-width: 1000px) {
       main { grid-template-columns: 1fr; }
@@ -95,6 +123,19 @@
     <section>
       <h2>SWIM membership</h2>
       <div id="swim"></div>
+      <div class="control-row">
+        <label for="swim-node">node</label>
+        <input id="swim-node" type="number" min="1" value="2">
+        <label for="swim-status">status</label>
+        <select id="swim-status">
+          <option value="alive">ALIVE</option>
+          <option value="suspect">SUSPECT</option>
+          <option value="dead">DEAD</option>
+          <option value="recovering">RECOVERING</option>
+        </select>
+        <button id="swim-apply" type="button">Apply</button>
+        <span id="swim-action-result"></span>
+      </div>
     </section>
     <section>
       <h2>HotStuff current view / leader / commits</h2>
@@ -151,6 +192,21 @@
       return `<table>${head}${body}</table>`;
     };
     const renderError = (id, err) => document.getElementById(id).innerHTML = `<span class="error">${err.message}</span>`;
+    const setSwimMemberStatus = async () => {
+      const nodeId = document.getElementById("swim-node").value;
+      const status = document.getElementById("swim-status").value;
+      const result = document.getElementById("swim-action-result");
+      result.textContent = "applying...";
+      try {
+        const res = await fetch(`/bft/swim/members/${nodeId}/${status}`, { method: "PUT" });
+        const payload = await res.json();
+        if (!res.ok) throw new Error(payload.detail || `HTTP ${res.status}`);
+        result.textContent = `node${payload.node_id} -> ${payload.status}`;
+        await refresh();
+      } catch (err) {
+        result.innerHTML = `<span class="error">${err.message}</span>`;
+      }
+    };
 
     async function refresh() {
       try {
@@ -229,6 +285,7 @@
       }
     }
 
+    document.getElementById("swim-apply").addEventListener("click", setSwimMemberStatus);
     refresh();
     setInterval(refresh, 5000);
   </script>

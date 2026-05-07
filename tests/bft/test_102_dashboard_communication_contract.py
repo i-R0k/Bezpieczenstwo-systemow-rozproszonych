@@ -10,10 +10,12 @@ def test_bft_dashboard_serves_html_with_expected_fetch_endpoints(bft_client) -> 
         "/bft/status",
         "/bft/events",
         "/bft/swim/status",
+        "/bft/swim/members/${nodeId}/${status}",
         "/bft/hotstuff/status",
         "/bft/communication/log",
     ):
         assert endpoint in html
+    assert "Apply" in html
 
 
 def test_communication_log_contract_and_limit_validation(bft_client) -> None:

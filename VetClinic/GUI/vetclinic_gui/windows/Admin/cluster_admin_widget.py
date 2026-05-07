@@ -50,6 +50,26 @@ def format_chain_verify_status(payload: dict[str, Any]) -> tuple[str, str]:
     return "INVALID", str(reason or "verify failed")
 
 
+def format_faults_status(payload: dict[str, Any] | None) -> str:
+    if not payload:
+        return "FAULT_* unavailable"
+    active: list[str] = []
+    if payload.get("offline"):
+        active.append("OFFLINE")
+    if payload.get("byzantine"):
+        active.append("BYZANTINE")
+    if payload.get("flapping"):
+        mod = payload.get("flapping_mod") or 0
+        active.append(f"FLAPPING/{mod}" if mod else "FLAPPING")
+    slow_ms = int(payload.get("slow_ms") or 0)
+    if slow_ms > 0:
+        active.append(f"SLOW={slow_ms}ms")
+    drop_prob = float(payload.get("drop_rpc_prob") or payload.get("drop_rpc_probability") or 0.0)
+    if drop_prob > 0.0:
+        active.append(f"DROP_RPC={drop_prob:.2f}")
+    return "FAULT_* ok" if not active else "FAULT_* " + ", ".join(active)
+
+
 class ClusterAdminWidget(QtWidgets.QWidget):
     """Panel administracyjny do podglądu klastra blockchain i sterowania FAULT_*."""
 
@@ -272,6 +292,25 @@ class ClusterAdminWidget(QtWidgets.QWidget):
                     f"{faults_desc}; " if faults_desc else ""
                 ) + f"VERIFY ERR: {exc}"
 
+            try:
+                f_resp = requests.get(f"{base_url}/admin/faults", timeout=3.0)
+                if f_resp.status_code == 200:
+                    fault_status = format_faults_status(f_resp.json())
+                    if fault_status != "FAULT_* ok":
+                        faults_desc = (
+                            f"{faults_desc}; " if faults_desc and faults_desc != "ok" else ""
+                        ) + fault_status
+                    elif not faults_desc:
+                        faults_desc = fault_status
+                else:
+                    faults_desc = (
+                        f"{faults_desc}; " if faults_desc else ""
+                    ) + f"faults HTTP {f_resp.status_code}"
+            except Exception as exc:
+                faults_desc = (
+                    f"{faults_desc}; " if faults_desc else ""
+                ) + f"FAULTS ERR: {exc}"
+
             self.table.setItem(row, 2, QtWidgets.QTableWidgetItem(height))
             self.table.setItem(row, 3, QtWidgets.QTableWidgetItem(last_hash))
             self.table.setItem(row, 4, QtWidgets.QTableWidgetItem(valid_str))
@@ -296,6 +335,8 @@ class ClusterAdminWidget(QtWidgets.QWidget):
                 color = QtGui.QColor("#D9D9D9")
             elif valid_str == "VALID":
                 color = QtGui.QColor("#D9EAD3")
+            if "FAULT_* " in desc and desc != "FAULT_* ok":
+                color = QtGui.QColor("#FFF2CC")
 
             if color:
                 for col in range(6):
@@ -406,7 +447,19 @@ class ClusterAdminWidget(QtWidgets.QWidget):
         try:
             resp = requests.put(url, headers=self._admin_headers(), json=payload, timeout=5.0)
             resp.raise_for_status()
-            self._show_info(f"FAULT_* zaktualizowane:\n{json.dumps(resp.json(), indent=2)}")
+            body = resp.json()
+            self.text_details.setPlainText(
+                json.dumps(
+                    {
+                        "node": node_id,
+                        "faults": body,
+                        "summary": format_faults_status(body),
+                    },
+                    indent=2,
+                    ensure_ascii=False,
+                )
+            )
+            self._show_info(f"FAULT_* zaktualizowane:\n{json.dumps(body, indent=2)}")
         except Exception as exc:
             self._show_error(f"/admin/faults PUT error: {exc}")
 
@@ -446,6 +499,16 @@ class ClusterAdminWidget(QtWidgets.QWidget):
                 if v_resp.status_code == 200
                 else {"http_status": v_resp.status_code, "body": v_resp.text},
             }
+            try:
+                f_resp = requests.get(f"{base_url}/admin/faults", timeout=3.0)
+                data["faults"] = (
+                    f_resp.json()
+                    if f_resp.status_code == 200
+                    else {"http_status": f_resp.status_code, "body": f_resp.text}
+                )
+                data["faults_summary"] = format_faults_status(data["faults"])
+            except Exception as exc:
+                data["faults"] = {"error": str(exc)}
             self.text_details.setPlainText(
                 json.dumps(data, indent=2, ensure_ascii=False)
             )
